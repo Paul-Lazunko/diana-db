@@ -1,0 +1,20 @@
+import {
+  DEFAULT_DI_DB_DUMP_CREATE_INTERVAL,
+  DEFAULT_DI_DB_DUMP_CURRENT_NAME,
+  DEFAULT_DI_DB_DUMPS_DIRECTORY,
+  DEFAULT_DI_DB_LOGS_DIRECTORY,
+  DEFAULT_DI_DB_LOGS_TTL,
+  DEFAULT_DI_DB_PORT,
+  DEFAULT_DI_DB_WORKERS_COUNT
+} from "../constants";
+
+export const config: any = {
+  port: process.env.DI_DB_PORT || DEFAULT_DI_DB_PORT,
+  workersCount: process.env.DI_DB_WORKERS_COUNT || DEFAULT_DI_DB_WORKERS_COUNT,
+  dumpCreateInterval: process.env.DI_DB_DUMP_CREATE_INTERVAL || DEFAULT_DI_DB_DUMP_CREATE_INTERVAL,
+  dumpDirectory: process.env.DI_DB_DUMPS_DIRECTORY || DEFAULT_DI_DB_DUMPS_DIRECTORY,
+  logsDirectory: process.env.DI_DB_LOGS_DIRECTORY || DEFAULT_DI_DB_LOGS_DIRECTORY,
+  logsTtlValue: process.env.DI_DB_LOGS_TTL || DEFAULT_DI_DB_LOGS_TTL,
+  currentDumpName: process.env.DI_DB_DUMP_CURRENT_NAME || DEFAULT_DI_DB_DUMP_CURRENT_NAME,
+  secretKey: process.env.DI_DB_SECRET_KEY
+};

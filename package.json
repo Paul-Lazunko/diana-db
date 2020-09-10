@@ -1,0 +1,39 @@
+{
+  "name": "database",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "tslint": "tslint src/**/*.ts{,x}"
+  },
+  "devDependencies": {
+    "@types/hapi__joi": "^17.1.4",
+    "@types/node": "^14.6.0",
+    "@types/winston": "^2.4.4",
+    "ts-node": "^5.0.0",
+    "tslint": "^5.9.1",
+    "tslint-config-airbnb": "^5.11.1",
+    "tslint-config-prettier": "^1.17.0",
+    "typescript": "^3.9.2"
+  },
+  "author": "Paul Lazunko",
+  "license": "ISC",
+  "dependencies": {
+    "@hapi/joi": "^17.1.0",
+    "data-store": "^4.0.3",
+    "esm": "^3.2.25",
+    "winston": "^3.3.3",
+    "winston-daily-rotate-file": "^4.5.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Paul-Lazunko/database.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Paul-Lazunko/database/issues"
+  },
+  "homepage": "https://github.com/Paul-Lazunko/database#readme",
+  "description": ""
+}
