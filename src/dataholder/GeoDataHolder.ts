@@ -23,8 +23,9 @@ export class GeoDataHolder implements IDataHolder {
     this.set(params);
   }
 
-  public update(params: IDataHolderMethodsParams<IGeo>) {
-    this.set(params);
+  public update(params: IDataHolderMethodsParams<IGeo>, data: IDataHolderMethodsParams<IGeo>) {
+    this.remove(params)
+    this.set(data);
   }
 
   protected set(params: IDataHolderMethodsParams<IGeo>) {
