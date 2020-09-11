@@ -6,7 +6,7 @@ import { Field } from '../field';
 import { randomStringGenerator } from '../helpers';
 import { IDatabaseOptions } from '../options';
 import { IDataHolder, ISchema } from '../structures';
-import { schemaItemValidator } from '../validator';
+import { autoRollbackValidator, schemaItemValidator } from '../validator';
 import { addTTLHandler, removeTTLHandler, addStoreHandler, removeStoreHandler } from '../eventEmmitter';
 
 export class Database {
@@ -171,6 +171,10 @@ export class Database {
   }
 
   public startTransaction(autoRollbackAfterMS: number): string {
+    const validationResult: any = autoRollbackValidator(autoRollbackAfterMS);
+    if ( validationResult && validationResult.error ) {
+      throw ErrorFactory.databaseError(validationResult.error.message);
+    }
     const transactionId: string = randomStringGenerator(32, true);
     this.collections.forEach((collection: Collection, name: string) => {
       collection.startTransaction(transactionId, autoRollbackAfterMS);

@@ -1,5 +1,5 @@
 const joi = require('@hapi/joi');
-
+import { config } from '../config';
 import {
   numberField,
   stringField,
@@ -25,6 +25,8 @@ import {
   configurationOptions
 } from './schemas';
 import { defaultValidationOptions } from './options';
+
+const { transactionsMinAutoRollBackValue, transactionsMaxAutoRollBackValue } = config;
 
 const filterQueryValidator: any = {
   string(data: any) {
@@ -107,6 +109,14 @@ const configurationValidator = (options: any) => {
   return configurationOptions.validate(options, { allowUnknown: false, convert: true })
 };
 
+const autoRollbackValidator = (value: any) => {
+  return joi.number()
+    .positive()
+    .integer()
+    .min(transactionsMinAutoRollBackValue)
+    .max(transactionsMaxAutoRollBackValue)
+    .validate(value);
+};
 
 export {
   schemaItemValidator,
@@ -115,5 +125,6 @@ export {
   setDataValidator,
   sortQueryValidator,
   validateTimeString,
-  configurationValidator
+  configurationValidator,
+  autoRollbackValidator
 }

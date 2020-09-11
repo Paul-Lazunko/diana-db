@@ -10,7 +10,7 @@ export class RequestController {
   protected databases: Map<string, Database>;
   protected diDb: DiDB;
 
-  protected nonRequiredDbActions: string[] = [
+  protected nonRequiredCollectionActions: string[] = [
     EClientActions.MIGRATE_DOWN,
     EClientActions.MIGRATE_UP,
     EClientActions.GET_MIGRATIONS,
@@ -54,7 +54,7 @@ export class RequestController {
     };
     try {
       const db: Database = this.getDatabase(database);
-      if ( action !== EClientActions.ADD_COLLECTION && !this.nonRequiredDbActions.includes(action) ) {
+      if ( action !== EClientActions.ADD_COLLECTION && !this.nonRequiredCollectionActions.includes(action) ) {
         this.checkCollectionExistence(db, collection);
       }
       switch ( action ) {
