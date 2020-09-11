@@ -131,16 +131,16 @@ export class Collection {
       const transactionData: TransactionsData = this.transactionsData.get(transactionId);
       const { updated } = transactionData;
       updated.forEach((item: { [key: string]: any }, id: string) => {
-        const updateQuery: any = {};
+        const setData: any = {};
         for ( const k in item ) {
           // @ts-ignore
-          updateQuery[k] = item[k]
+          setData[k] = item[k]
         }
         this.update([{
           _id: {
             $eq: id
           }
-        }], updateQuery)
+        }], setData)
       });
     }
   }

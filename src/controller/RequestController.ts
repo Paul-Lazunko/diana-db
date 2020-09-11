@@ -35,7 +35,7 @@ export class RequestController {
       collection,
       action,
       filterQueries,
-      updateQuery,
+      setData,
       transformQueries,
       sortQuery,
       skip,
@@ -100,11 +100,11 @@ export class RequestController {
           response.data = resultCount;
           break;
         case EClientActions.INSERT:
-          const resultInsert: any[] = db.collections.get(collection).insert(updateQuery, transactionId);
+          const resultInsert: any[] = db.collections.get(collection).insert(setData, transactionId);
           response.data = resultInsert;
           break;
         case EClientActions.UPDATE:
-          const resultUpdate: IUpdateResult = db.collections.get(collection).update(filterQueries, updateQuery, transactionId);
+          const resultUpdate: IUpdateResult = db.collections.get(collection).update(filterQueries, setData, transactionId);
           response.nFound = resultUpdate.nFound;
           response.nModified = resultUpdate.nModified;
           break;

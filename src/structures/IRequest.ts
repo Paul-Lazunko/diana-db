@@ -12,7 +12,7 @@ export interface IRequest {
   action: EClientActions,
   filterQueries?: IQuery[],
   transformQueries?: any[],
-  updateQuery?: any,
+  setData?: any,
   sortQuery?: any,
   skip?: number,
   limit?: number,

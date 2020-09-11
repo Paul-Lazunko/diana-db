@@ -7,7 +7,7 @@ import {
   filterQueryValidator,
   sortQueryValidator,
   transformQueriesValidator,
-  updateQueryValidator
+  setDataValidator
 } from './validationHelpers';
 import { objectIdQuery } from './schemas';
 
@@ -128,44 +128,44 @@ export class Validator {
         case Types.ARRAY:
           switch(this.collection.schema[key].items) {
             case Types.BOOLEAN:
-              validationResult = updateQueryValidator.arrayOfBoolean(data[key])
+              validationResult = setDataValidator.arrayOfBoolean(data[key])
               break;
             case Types.STRING:
-              validationResult = updateQueryValidator.arrayOfString(data[key])
+              validationResult = setDataValidator.arrayOfString(data[key])
               break;
             case Types.REFERENCE:
             case Types.OBJECT_ID:
-              validationResult = updateQueryValidator.arrayOfObjectId(data[key])
+              validationResult = setDataValidator.arrayOfObjectId(data[key])
               break;
             case Types.NUMBER:
-              validationResult = updateQueryValidator.arrayOfNumber(data[key])
+              validationResult = setDataValidator.arrayOfNumber(data[key])
               break;
             case Types.TIME:
-              validationResult = updateQueryValidator.arrayOfTime(data[key])
+              validationResult = setDataValidator.arrayOfTime(data[key])
               break;
             case Types.GEO:
-              validationResult = updateQueryValidator.geo(data[key])
+              validationResult = setDataValidator.geo(data[key])
               break;
           }
           break;
         case Types.BOOLEAN:
-          validationResult = updateQueryValidator.boolean(data[key])
+          validationResult = setDataValidator.boolean(data[key])
           break;
         case Types.STRING:
-          validationResult = updateQueryValidator.string(data[key]);
+          validationResult = setDataValidator.string(data[key]);
           break;
         case Types.REFERENCE:
         case Types.OBJECT_ID:
-          validationResult = updateQueryValidator.objectId(data[key]);
+          validationResult = setDataValidator.objectId(data[key]);
           break;
         case Types.NUMBER:
-          validationResult = updateQueryValidator.number(data[key])
+          validationResult = setDataValidator.number(data[key])
           break;
         case Types.TIME:
-          validationResult = updateQueryValidator.time(data[key])
+          validationResult = setDataValidator.time(data[key])
           break;
         case Types.GEO:
-          validationResult = updateQueryValidator.geo(data[key])
+          validationResult = setDataValidator.geo(data[key])
           break;
       }
       if ( validationResult && validationResult.error ) {

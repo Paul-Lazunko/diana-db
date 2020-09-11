@@ -7,6 +7,5 @@ export interface IQueryOperands<T> {
     $gte?: T,
     $lt?: T,
     $lte?: T,
-    $cs?: T,
-    $ns?: T
+    $regex?: T,
 }
