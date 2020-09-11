@@ -1,7 +1,7 @@
-import { DiDB } from '../application';
+import { DianaDB } from '../application';
 import { Database } from '../database';
 
 export interface IRequestControllerOptions {
-  diDb: DiDB,
+  dianaDB: DianaDB,
   databases: Map<string, Database>
 }

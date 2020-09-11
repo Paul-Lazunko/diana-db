@@ -6,7 +6,7 @@ import { IPublishParams } from '../params';
 import { IRequest, IResponse } from '../structures';
 import { config } from '../config';
 
-export class DiDBServer {
+export class DianaDBServer {
   private server: Server;
   private readonly port: number;
   private sockets: Map <string, Socket>;

@@ -6,15 +6,15 @@ import { ErrorFactory } from "../error";
 import { addRootHandler, publishEventEmitter } from '../eventEmmitter';
 import { logger } from '../logger';
 import { RequestQueueHandler, ResponseQueueHandler } from '../queue';
-import { DiDBServer } from '../server';
+import { DianaDBServer } from '../server';
 import { store } from '../store';
 import { IRequest, IResponse } from '../structures';
 import { configurationValidator } from "../validator";
 
 
-export class DiDB {
+export class DianaDB {
   public databases: Map<string, Database>;
-  protected server: DiDBServer;
+  protected server: DianaDBServer;
   protected controller: RequestController;
   public migrations: { [key: string]: number } = {};
 
@@ -22,7 +22,7 @@ export class DiDB {
     this.validateConfiguration();
     this.databases = new Map<string, Database>();
     this.migrations = store.get('migrations') || {};
-    this.server = new DiDBServer({
+    this.server = new DianaDBServer({
       port: config.port,
       handler: this.enQueueRequest.bind(this)
     });
@@ -34,7 +34,7 @@ export class DiDB {
     },  config.workersCount)
     this.controller = new RequestController({
       databases: this.databases,
-      diDb: this
+      dianaDB: this
     });
     addRootHandler('migrations', this.store.bind(this));
     publishEventEmitter.on('publish', this.onPublish.bind(this));
@@ -100,7 +100,7 @@ export class DiDB {
     const databases: any = store.get('db');
     if ( databases ) {
       for ( const database in databases ) {
-        this.databases.set(database, new Database({ name: database, diDb: this }));
+        this.databases.set(database, new Database({ name: database, dianaDB: this }));
         this.databases.get(database).restore(databases[database]);
       }
     }
@@ -119,4 +119,4 @@ export class DiDB {
 
 }
 
-export const diDB = new DiDB();
+export const dianaDB = new DianaDB();

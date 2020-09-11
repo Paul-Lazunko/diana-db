@@ -1,1 +1,1 @@
-export * from './DiDB'
+export * from './DianaDB'

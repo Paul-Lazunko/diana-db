@@ -1,4 +1,4 @@
-import { DiDB } from '../application';
+import { DianaDB } from '../application';
 import { EClientActions, EMigrationStatus, EServerActions, ETransactionStatus } from '../constants';
 import { Database } from '../database';
 import { ErrorFactory } from "../error";
@@ -8,7 +8,7 @@ import { IRemoveResult, IRequest, IResponse, IUpdateResult } from '../structures
 export class RequestController {
 
   protected databases: Map<string, Database>;
-  protected diDb: DiDB;
+  protected dianaDB: DianaDB;
 
   protected nonRequiredCollectionActions: string[] = [
     EClientActions.MIGRATE_DOWN,
@@ -19,10 +19,15 @@ export class RequestController {
     EClientActions.ROLLBACK_TRANSACTION,
     EClientActions.GET_COLLECTION_NAMES
   ];
+  protected nonRequiredDbActions: string[] = [
+    EClientActions.MIGRATE_DOWN,
+    EClientActions.MIGRATE_UP,
+    EClientActions.GET_MIGRATIONS,
+  ];
 
   constructor(options: IRequestControllerOptions) {
-    const { databases, diDb } = options;
-    this.diDb = diDb;
+    const { databases, dianaDB } = options;
+    this.dianaDB = dianaDB;
     this.databases = databases;
   }
 
@@ -53,23 +58,23 @@ export class RequestController {
       data: []
     };
     try {
-      const db: Database = this.getDatabase(database);
+      const db: Database = this.getDatabase(database,  !this.nonRequiredDbActions.includes(action));
       if ( action !== EClientActions.ADD_COLLECTION && !this.nonRequiredCollectionActions.includes(action) ) {
         this.checkCollectionExistence(db, collection);
       }
       switch ( action ) {
         case EClientActions.GET_MIGRATIONS:
-          response.data = Object.keys(this.diDb.migrations);
+          response.data = Object.keys(this.dianaDB.migrations);
           break;
         case EClientActions.MIGRATE_UP:
           if ( migration ) {
-            this.diDb.migrations[migration] = new Date().getTime();
+            this.dianaDB.migrations[migration] = new Date().getTime();
             response.data = { migration: { name: migration, status: EMigrationStatus.UP } };
           }
           break;
         case EClientActions.MIGRATE_DOWN:
           if ( migration ) {
-            delete this.diDb.migrations[migration];
+            delete this.dianaDB.migrations[migration];
             response.data = { migration: { name: migration, status: EMigrationStatus.DOWN } };
           }
           break;
@@ -128,8 +133,7 @@ export class RequestController {
       }
 
     } catch(e) {
-      console.log({e})
-      response.error  = e.message;
+      response.error = e.message;
       response.operationTime = new Date().getTime() - response.operationTime;
       return response;
     }
@@ -137,11 +141,14 @@ export class RequestController {
     return response;
   }
 
-  private getDatabase(name: string) {
-    if ( name && !this.databases.has(name) ) {
-      this.databases.set(name, new Database({ name, diDb: this.diDb }))
+  private getDatabase(name: string, throwError?: boolean) {
+    if ( ! name && throwError ) {
+      throw ErrorFactory.databaseError('database name is required')
     }
-    return name ? this.databases.get(name) : undefined;
+    if ( name && !this.databases.has(name) ) {
+      this.databases.set(name, new Database({ name, dianaDB: this.dianaDB }));
+    }
+    return this.databases.get(name);
   }
 
   private checkCollectionExistence(db: Database, collection: string) {

@@ -1,4 +1,4 @@
-import { DiDB } from '../application';
+import { DianaDB } from '../application';
 import { Collection } from '../collection';
 import { Types } from '../constants'
 import { ErrorFactory } from "../error";
@@ -11,18 +11,18 @@ import { addTTLHandler, removeTTLHandler, addStoreHandler, removeStoreHandler } 
 
 export class Database {
   public name: string;
-  public diDb: DiDB;
+  public dianaDB: DianaDB;
   public collections: Map<string, Collection>;
   public Types: Map<Types, Field>;
 
   constructor(options: IDatabaseOptions) {
     const {
       name,
-      diDb
+      dianaDB
     } = options;
     this.collections = new Map<string, Collection>();
     this.name = name;
-    this.diDb = diDb;
+    this.dianaDB = dianaDB;
     this.init();
     addStoreHandler(this.name, this.store.bind(this));
   }

@@ -1,6 +1,6 @@
-import { DiDB } from '../application';
+import { DianaDB } from '../application';
 
 export interface IDatabaseOptions {
-    name: string,
-    diDb: DiDB
+  name: string,
+  dianaDB: DianaDB
 }

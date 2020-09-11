@@ -68,7 +68,7 @@ export class AggregationFramework {
       localField,
       filter
     } = options;
-    if ( database && !this.collection.db.diDb.databases.has(database) ) {
+    if ( database && !this.collection.db.dianaDB.databases.has(database) ) {
       throw ErrorFactory.databaseError(`database ${database} doesn't exist`);
     } else if ( !database && !this.collection.db.collections.has(collection) ) {
       throw ErrorFactory.databaseError(`collection ${collection} doesn't exist`);
@@ -77,7 +77,7 @@ export class AggregationFramework {
     filterQuery[foreignField] = {
       $eq: item[localField]
     };
-    const _collection: Collection = database ? this.collection.db.diDb.databases.get(database).collections.get(collection) : this.collection.db.collections.get(collection);
+    const _collection: Collection = database ? this.collection.db.dianaDB.databases.get(database).collections.get(collection) : this.collection.db.collections.get(collection);
     item[as] = _collection.find([Object.assign(filter||{}, filterQuery)]);
     return item;
   }

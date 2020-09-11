@@ -1,16 +1,1 @@
-export * from './application';
-export * from './collection';
-export * from './constants';
-export * from './controller';
-export * from './database';
-export * from './dataholder';
-export * from './eventEmmitter';
-export * from './field';
-export * from './helpers';
-export * from './options';
-export * from './params';
-export * from './queryProcessor';
-export * from './queue';
-export * from './server';
-export * from './structures';
-export * from './validator';
+export { DianaDB } from './application';
