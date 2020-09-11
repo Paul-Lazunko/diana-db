@@ -1,1 +1,1 @@
-export { DianaDB } from './application';
+export { dianaDB } from './application';
