@@ -75,7 +75,7 @@ export class DianaDBServer {
     if ( _socket ) {
       const _response: string = CryptoHelper.encrypt(config.secretKey, JSON.stringify(response));
       try {
-        _socket.write(_response);
+        _socket.write(_response+'\n');
       } catch (error) {
         console.error({ error });
       }
