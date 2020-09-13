@@ -1,4 +1,4 @@
-export class MathHelper {
+export class MatchHelper {
 
   $eq(items: any[], key: string, value: any) {
     return items.filter((item: any) => item[key] === value);

@@ -15,5 +15,5 @@ export const EQueryProcessorConstructor  = {
   NUMBER: NumberQueryProcessor,
   TIME: TimeQueryProcessor,
   REFERENCE: ReferenceQueryProcessor,
-  GEO: GeoQueryProcessor
+  POSITION: GeoQueryProcessor
 };

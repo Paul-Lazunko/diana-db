@@ -15,5 +15,5 @@ export const EDataHolderConstructor = {
   NUMBER:  NumberHolder,
   TIME: TimeHolder,
   REFERENCE: ReferenceHolder,
-  GEO: GeoDataHolder
+  POSITION: GeoDataHolder
 }

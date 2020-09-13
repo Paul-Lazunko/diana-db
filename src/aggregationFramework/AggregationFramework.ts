@@ -1,7 +1,7 @@
 import { Collection } from '../collection';
 import { ErrorFactory } from "../error";
 import { IAggregatorOptions, ILookupOptions } from '../options';
-import { MathHelper } from './MathHelper';
+import { MatchHelper } from './MatchHelper';
 import { ProjectionHelper } from './ProjectionHelper';
 import { objectFirstKeyHelper } from './objectFirstKeyHelper'
 
@@ -9,13 +9,13 @@ export class AggregationFramework {
 
   protected collection: Collection;
   protected projectionHelper: ProjectionHelper;
-  protected mathHelper: MathHelper;
+  protected matchHelper: MatchHelper;
   protected items: any[];
 
   constructor(options: IAggregatorOptions) {
     this.collection = options.collection;
     this.projectionHelper = new ProjectionHelper({ aggregationFramework: this });
-    this.mathHelper = new MathHelper();
+    this.matchHelper = new MatchHelper();
   }
 
   aggregate(items: any[], transformQueries: any[]) {
@@ -131,7 +131,7 @@ export class AggregationFramework {
     for ( const key in matchQuery ) {
       const method: string = Object.keys(matchQuery[key])[0];
       // @ts-ignore
-      items = this.mathHelper[method](items, key, matchQuery[key][method])
+      items = this.matchHelper[method](items, key, matchQuery[key][method])
     }
     return items;
   }
