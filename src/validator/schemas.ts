@@ -2,7 +2,7 @@ import { Types } from '../constants';
 const joi = require('@hapi/joi');
 
 const configurationOptions = joi.object({
-  port: joi.number().positive().integer().min(1025).max(65536).required(),
+  port: joi.number().positive().integer().min(1025).max(65535).required(),
   workersCount: joi.number().positive().integer().min(1).required(),
   transactionsMinAutoRollBackValue: joi.number().positive().integer(),
   transactionsMaxAutoRollBackValue: joi.number().positive().integer(),
