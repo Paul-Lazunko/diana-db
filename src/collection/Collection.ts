@@ -534,7 +534,7 @@ export class Collection {
             if ( sortQuery[key] === -1 ) {
               return compareResult ? -1 : 1
             }
-            return compareResult ? -1 : 1
+            return compareResult ? 1 : -1
           }
         });
       }
