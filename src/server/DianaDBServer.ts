@@ -39,17 +39,26 @@ export class DianaDBServer {
 
   onConnection(socket: Socket) {
     const id: string = randomStringGenerator(27, true);
+    let rawStringData = '';
     this.sockets.set(id, socket);
     const addressInfo: any = socket.address();
     socket.addListener('data', (data: string) => {
-      try {
-        const decryptedData: string = CryptoHelper.decrypt(config.secretKey, data.toString());
-        const request: IRequest = JSON.parse(decryptedData);
-        request.socket = id;
-        request.addressInfo = addressInfo;
-        this.onData(request)
-      } catch(e) {
-        socket.end();
+      const dataString: string = data.toString();
+      const dataStringSplit: string[] = dataString.split('\n');
+      for ( let i = 0; i < dataStringSplit.length; i = i + 1 ) {
+        try {
+          const decryptedData: string =
+            rawStringData.length ?
+                CryptoHelper.decrypt(config.secretKey, rawStringData + dataStringSplit[i])
+              : CryptoHelper.decrypt(config.secretKey, dataStringSplit[i]);
+          const request: IRequest = JSON.parse(decryptedData);
+          request.socket = id;
+          request.addressInfo = addressInfo;
+          rawStringData = '';
+          this.onData(request);
+        } catch(e) {
+          rawStringData += dataStringSplit[i]
+        }
       }
     });
     socket.on('end', () => {
@@ -77,7 +86,7 @@ export class DianaDBServer {
       try {
         _socket.write(_response+'\n');
       } catch (error) {
-        console.error({ error });
+        _socket.end();
       }
     }
   }
