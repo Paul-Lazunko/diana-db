@@ -110,6 +110,21 @@ export class Database {
              this.Types.get(schema[key].type).addCollectionKey(collection, key)
              break;
          }
+       } else if (c.schema[key] && key !== '_id') {
+         for ( const prop in schema[key] ) {
+           // @ts-ignore
+           c.schema[key][prop] = schema[key][prop];
+         }
+         for ( const prop in c.schema[key] ) {
+           // @ts-ignore
+           if ( schema[key][prop] ) {
+             // @ts-ignore
+             c.schema[key][prop] = schema[key][prop];
+           } else {
+             // @ts-ignore
+             delete c.schema[key][prop];
+           }
+         }
        }
       }
     } else {
