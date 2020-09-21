@@ -23,9 +23,9 @@ const mac: string = _mac.replace(/\:/g,'');
 const base: string = '123456789abcdef';
 
 export function objectIdHelper(): string {
-  const ts: string = Math.round(new Date().getTime()/1000).toString(16);
+  const ts: string = Math.round(new Date().getTime()).toString(16);
   let id: string = `${mac}${pid}${ts}`;
-  while ( id.length < 27 ) {
+  while ( id.length < 36 ) {
     id += base.charAt(Math.floor( Math.random() * base.length) );
   }
   return id;

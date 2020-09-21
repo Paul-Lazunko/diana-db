@@ -16,7 +16,7 @@ const configurationOptions = joi.object({
 
 const numberField = joi.number();
 const stringField = joi.string();
-const objectIdField = joi.string().regex(/^[0-9a-fA-F]{27}$/);
+const objectIdField = joi.string().regex(/^[0-9a-fA-F]{36}$/);
 const timeField = joi.string().isoDate();
 const booleanField = joi.boolean().allow(true, false);
 const geoField = joi.object({
