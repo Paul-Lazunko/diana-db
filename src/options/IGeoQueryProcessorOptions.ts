@@ -1,5 +1,5 @@
-import { IGeo } from '../structures';
+import { IPoint } from '../structures';
 
 export interface IGeoQueryProcessorOptions {
-  data: Map<string, IGeo>
+  data: Map<string, IPoint>
 }

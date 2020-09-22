@@ -1,11 +1,11 @@
 import { TQuery } from '../constants';
 import { arrayIntersection } from '../helpers';
 import { IGeoQueryProcessorOptions, INearLineOptions } from '../options';
-import { IGeo, IInsideCircleOptions, IQuery } from '../structures';
+import { IPoint, IInsideCircleOptions, IQuery } from '../structures';
 
-export class GeoQueryProcessor {
+export class PointQueryProcessor {
 
-  protected data: Map<string, IGeo>;
+  protected data: Map<string, IPoint>;
 
   constructor(options: IGeoQueryProcessorOptions) {
     this.data = options.data;
@@ -24,7 +24,7 @@ export class GeoQueryProcessor {
   public $insideCircle(options: IInsideCircleOptions): string[] {
     const { center, radius } = options;
     const result: string[] = [];
-    this.data.forEach((item: IGeo, key: string) => {
+    this.data.forEach((item: IPoint, key: string) => {
       const distance: number = this.getDistanceBetweenPoints(item, center);
       if ( distance <= radius ) {
         result.push(key);
@@ -36,7 +36,7 @@ export class GeoQueryProcessor {
   public $outsideCircle(options: IInsideCircleOptions) {
     const { center, radius } = options;
     const result: string[] = [];
-    this.data.forEach((item: IGeo, key: string) => {
+    this.data.forEach((item: IPoint, key: string) => {
       const distance: number = this.getDistanceBetweenPoints(item, center);
       if ( distance > radius ) {
         if ( !result.includes(key) ) {
@@ -47,9 +47,9 @@ export class GeoQueryProcessor {
     return result;
   }
 
-  public $insidePolygon(points: IGeo[]): string[] {
+  public $insidePolygon(points: IPoint[]): string[] {
     const result: string[] = [];
-    this.data.forEach((item: IGeo, key: string) => {
+    this.data.forEach((item: IPoint, key: string) => {
       if ( this.checkIfPointInsidePolygon(item, points) ) {
         if ( !result.includes(key) ) {
           result.push(key)
@@ -59,9 +59,9 @@ export class GeoQueryProcessor {
     return result;
   }
 
-  public $outsidePolygon(points: IGeo[]): string[] {
+  public $outsidePolygon(points: IPoint[]): string[] {
     const result: string[] = [];
-    this.data.forEach((item: IGeo, key: string) => {
+    this.data.forEach((item: IPoint, key: string) => {
       if ( !this.checkIfPointInsidePolygon(item, points) ) {
         if ( !result.includes(key) ) {
           result.push(key)
@@ -77,7 +77,7 @@ export class GeoQueryProcessor {
     const linesLength: number = lines.length;
     for ( let i = 0; i < linesLength; i = i + 1) {
       const line = lines[i];
-      this.data.forEach((item: IGeo, key: string) => {
+      this.data.forEach((item: IPoint, key: string) => {
         const d: number = this.getDistanceToLine(item, line);
         if ( d <= distance ) {
           if ( !result.includes(key) ) {
@@ -95,7 +95,7 @@ export class GeoQueryProcessor {
     const linesLength: number = lines.length;
     for ( let i = 0; i < linesLength; i = i + 1) {
       const line = lines[i];
-      this.data.forEach((item: IGeo, key: string) => {
+      this.data.forEach((item: IPoint, key: string) => {
         const d: number = this.getDistanceToLine(item, line);
         if ( d > distance ) {
           if ( !result.includes(key) ) {
@@ -107,14 +107,14 @@ export class GeoQueryProcessor {
     return result;
   }
 
-  protected getDistanceBetweenPoints(point: IGeo, anotherPoint: IGeo): number {
+  protected getDistanceBetweenPoints(point: IPoint, anotherPoint: IPoint): number {
     return Math.sqrt(
       Math.pow(Math.abs(point.x - anotherPoint.x), 2) + Math.pow(Math.abs(point.y - anotherPoint.y), 2)
     );
   }
 
-  protected getDistanceToLine(point: IGeo, linePoints: IGeo[] ) {
-    const [ a,b ]: IGeo[] = linePoints;
+  protected getDistanceToLine(point: IPoint, linePoints: IPoint[] ) {
+    const [ a,b ]: IPoint[] = linePoints;
     const ab = this.getDistanceBetweenPoints(a,b);
     const bc = this.getDistanceBetweenPoints(point,b);
     const ac = this.getDistanceBetweenPoints(point,a);
@@ -123,7 +123,7 @@ export class GeoQueryProcessor {
     return 2*s/ab;
   }
 
-  protected checkIfPointInsidePolygon(item: IGeo, points: IGeo[]): boolean {
+  protected checkIfPointInsidePolygon(item: IPoint, points: IPoint[]): boolean {
     const { x, y } = item;
     const pointsCount = points.length;
     let j = pointsCount - 1;

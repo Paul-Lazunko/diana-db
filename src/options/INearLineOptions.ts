@@ -1,6 +1,6 @@
-import { IGeo } from '../structures';
+import { IPoint } from '../structures';
 
 export interface INearLineOptions {
-  lines: IGeo[][],
+  lines: IPoint[][],
   distance: number
 }

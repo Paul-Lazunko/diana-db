@@ -5,7 +5,7 @@ import {
   TimeQueryProcessor,
   ReferenceQueryProcessor,
   ObjectIdQueryProcessor,
-  GeoQueryProcessor
+  PointQueryProcessor
 } from '../queryProcessor';
 
 export const EQueryProcessorConstructor  = {
@@ -15,5 +15,5 @@ export const EQueryProcessorConstructor  = {
   NUMBER: NumberQueryProcessor,
   TIME: TimeQueryProcessor,
   REFERENCE: ReferenceQueryProcessor,
-  POSITION: GeoQueryProcessor
+  POSITION: PointQueryProcessor
 };

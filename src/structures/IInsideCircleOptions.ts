@@ -1,6 +1,6 @@
-import { IGeo } from './IGeo';
+import { IPoint } from './IPoint';
 
 export interface IInsideCircleOptions {
-  center: IGeo,
+  center: IPoint,
   radius: number
 }

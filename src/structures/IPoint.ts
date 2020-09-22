@@ -1,4 +1,4 @@
-export interface IGeo {
+export interface IPoint {
   x: number,
   y: number
 }
