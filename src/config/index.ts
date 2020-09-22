@@ -6,7 +6,17 @@ import {
   DEFAULT_DIANA_DB_LOGS_TTL,
   DEFAULT_DIANA_DB_PORT,
   DEFAULT_DIANA_DB_WORKERS_COUNT
-} from "../constants";
+} from '../constants';
+
+const data: { [key: string]: string | number } = process.env;
+
+for ( const variable in data ) {
+  try {
+    if ( /^\d+$/.test( data[variable].toString() ) ) {
+      data[variable] = parseInt(data[variable].toString(), 10);
+    }
+  } catch(e) {}
+}
 
 export const config: any = {
   port: process.env.DIANA_DB_PORT || DEFAULT_DIANA_DB_PORT,
