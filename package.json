@@ -1,6 +1,6 @@
 {
-  "name": "database",
-  "version": "1.0.0",
+  "name": "diana-db",
+  "version": "0.0.1",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -19,11 +19,10 @@
     "typescript": "^3.9.2"
   },
   "author": "Paul Lazunko",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@hapi/joi": "^17.1.0",
     "data-store": "^4.0.3",
-    "esm": "^3.2.25",
     "winston": "^3.3.3",
     "winston-daily-rotate-file": "^4.5.0"
   },
