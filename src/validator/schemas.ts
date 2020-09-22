@@ -2,15 +2,15 @@ import { Types } from '../constants';
 const joi = require('@hapi/joi');
 
 const configurationOptions = joi.object({
-  port: joi.number().positive().integer().min(1025).max(65535).required(),
-  workersCount: joi.number().positive().integer().min(1).required(),
+  port: joi.number().positive().integer().min(1025).max(65535),
+  workersCount: joi.number().positive().integer().min(1),
   transactionsMinAutoRollBackValue: joi.number().positive().integer(),
   transactionsMaxAutoRollBackValue: joi.number().positive().integer(),
-  dumpCreateInterval: joi.string().valid('day', 'hour').required(),
-  dumpDirectory: joi.string().regex(/^(^[\/]{1})|(^[\.]{1,2})\//).required(),
-  logsDirectory: joi.string().regex(/^(^[\/]{1})|(^[\.]{1,2})\//).required(),
+  dumpCreateInterval: joi.string().valid('day', 'hour'),
+  dumpDirectory: joi.string().regex(/^(^[\/]{1})|(^[\.]{1,2})\//),
+  logsDirectory: joi.string().regex(/^(^[\/]{1})|(^[\.]{1,2})\//),
   logsTtlValue: joi.string().regex(/^\d+d$/).required(),
-  currentDumpName: joi.string().regex(/\.json$/).required(),
+  currentDumpName: joi.string().regex(/\.json$/),
   secretKey: joi.string().required()
 });
 
