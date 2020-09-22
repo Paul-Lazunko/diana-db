@@ -39,7 +39,7 @@ export class DianaDBServer {
 
   onConnection(socket: Socket) {
     const id: string = randomStringGenerator(27, true);
-    let rawStringData = '';
+    let savedPreviousStringData = '';
     this.sockets.set(id, socket);
     const addressInfo: any = socket.address();
     socket.addListener('data', (data: string) => {
@@ -48,16 +48,16 @@ export class DianaDBServer {
       for ( let i = 0; i < dataStringSplit.length; i = i + 1 ) {
         try {
           const decryptedData: string =
-            rawStringData.length ?
-                CryptoHelper.decrypt(config.secretKey, rawStringData + dataStringSplit[i])
+            savedPreviousStringData.length ?
+                CryptoHelper.decrypt(config.secretKey, savedPreviousStringData + dataStringSplit[i])
               : CryptoHelper.decrypt(config.secretKey, dataStringSplit[i]);
           const request: IRequest = JSON.parse(decryptedData);
           request.socket = id;
           request.addressInfo = addressInfo;
-          rawStringData = '';
+          savedPreviousStringData = '';
           this.onData(request);
         } catch(e) {
-          rawStringData += dataStringSplit[i]
+          savedPreviousStringData += dataStringSplit[i]
         }
       }
     });
@@ -84,7 +84,7 @@ export class DianaDBServer {
     if ( _socket ) {
       const _response: string = CryptoHelper.encrypt(config.secretKey, JSON.stringify(response));
       try {
-        _socket.write(_response+'\n');
+        _socket.write(_response + '\n');
       } catch (error) {
         _socket.end();
       }
