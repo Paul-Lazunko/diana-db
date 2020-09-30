@@ -1,5 +1,5 @@
 import { Types } from '../constants';
-const joi = require('@hapi/joi');
+const joi = require('joi');
 
 const configurationOptions = joi.object({
   port: joi.number().positive().integer().min(1025).max(65535),
@@ -15,6 +15,10 @@ const configurationOptions = joi.object({
 });
 
 const numberField = joi.number();
+const numberFieldExtended = joi.alternatives(joi.number(), joi.object({
+  $inc: joi.number().positive(),
+  $decr: joi.number().positive()
+}));
 const stringField = joi.string();
 const objectIdField = joi.string().regex(/^[0-9a-fA-F]{36}$/);
 const timeField = joi.string().isoDate();
@@ -201,6 +205,7 @@ const sortQuery = joi.alternatives(
 export {
   configurationOptions,
   numberField,
+  numberFieldExtended,
   stringField,
   timeField,
   booleanField,

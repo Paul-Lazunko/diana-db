@@ -1,7 +1,8 @@
-const joi = require('@hapi/joi');
+const joi = require('joi');
 import { config } from '../config';
 import {
   numberField,
+  numberFieldExtended,
   stringField,
   timeField,
   booleanField,
@@ -24,6 +25,7 @@ import {
   sortQuery,
   configurationOptions
 } from './schemas';
+
 import { defaultValidationOptions } from './options';
 
 const { transactionsMinAutoRollBackValue, transactionsMaxAutoRollBackValue } = config;
@@ -54,7 +56,7 @@ const setDataValidator: any = {
     return booleanField.validate(data, defaultValidationOptions)
   },
   number(data:any) {
-    return numberField.validate(data, defaultValidationOptions)
+    return numberFieldExtended.validate(data, defaultValidationOptions)
   },
   string(data:any) {
     return stringField.validate(data, defaultValidationOptions)

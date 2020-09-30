@@ -168,7 +168,8 @@ export class Collection {
   public initRefs(
     refs: Map<string, string|string[]>,
     refsHolder:Map<string, string|string[]>,
-    options: { [ key: string ]: string}) {
+    options: { [ key: string ]: string}
+    ) {
     this.refs.push(refs);
     this.refsHolder.push(refsHolder);
     this.relatedCollections.push(options)
