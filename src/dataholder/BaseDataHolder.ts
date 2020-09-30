@@ -8,11 +8,11 @@ export class BaseDataHolder<T> implements IDataHolder {
 
   protected isBooleanHolder: boolean = false;
   protected database: Database;
-  private rawDataValues: Map<string, T|T[]>;
-  private rawDataKeys: Map<T, string[]>;
-  private identifiers: string[];
-  private readonly queryProcessorConstructor: any;
-  private queryProcessor: BaseQueryProcessor<T>;
+  protected rawDataValues: Map<string, T|T[]>;
+  protected rawDataKeys: Map<T, string[]>;
+  protected identifiers: string[];
+  protected readonly queryProcessorConstructor: any;
+  protected queryProcessor: BaseQueryProcessor<T>;
 
   constructor(queryProcessor: BaseQueryProcessor<T>, database?: Database) {
     this.queryProcessorConstructor = queryProcessor;

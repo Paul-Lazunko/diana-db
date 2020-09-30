@@ -1,5 +1,5 @@
 export interface IDataHolderMethodsParams<T> {
     identifier: string,
-    value?: T,
+    value?: T | any,
     options?: any
 }
