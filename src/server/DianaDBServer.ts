@@ -47,22 +47,24 @@ export class DianaDBServer {
       const dataString: string = data.toString();
       const dataStringSplit: string[] = dataString.split('\n');
       for ( let i = 0; i < dataStringSplit.length; i = i + 1 ) {
-        try {
-          const decryptedData: string =
-            savedPreviousStringData.length ?
+        if ( dataStringSplit[i] ) {
+          try {
+            const decryptedData: string =
+              savedPreviousStringData.length ?
                 CryptoHelper.decrypt(config.secretKey, savedPreviousStringData + dataStringSplit[i])
-              : CryptoHelper.decrypt(config.secretKey, dataStringSplit[i]);
-          const request: IRequest = JSON.parse(decryptedData);
-          isCorrectSecretKey = true;
-          request.socket = id;
-          request.addressInfo = addressInfo;
-          savedPreviousStringData = '';
-          this.onData(request);
-        } catch(e) {
-          if ( isCorrectSecretKey ) {
-            savedPreviousStringData += dataStringSplit[i]
-          } else {
-            socket.end();
+                : CryptoHelper.decrypt(config.secretKey, dataStringSplit[i]);
+            const request: IRequest = JSON.parse(decryptedData);
+            isCorrectSecretKey = true;
+            request.socket = id;
+            request.addressInfo = addressInfo;
+            savedPreviousStringData = '';
+            this.onData(request);
+          } catch(e) {
+            if ( isCorrectSecretKey ) {
+              savedPreviousStringData += dataStringSplit[i]
+            } else {
+              socket.end();
+            }
           }
         }
       }
