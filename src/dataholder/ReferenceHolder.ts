@@ -24,7 +24,8 @@ export class ReferenceHolder implements IDataHolder {
   }
 
   createCursor (params: IQuery[]): string[] {
-    const _ids: string[] = this.database.collections.get(this.reference).find(params).map(((item: any) => item._id));
+    const query = params.$subQuery ? params.$subQuery : params;
+    const _ids: string[] = this.database.collections.get(this.reference).find([ query ]).map(((item: any) => item._id));
     const result: string[] = [];
     for ( let i = 0; i < _ids.length; i = i + 1 ) {
       const id: any = this.referencesInverted.get(_ids[i]);
