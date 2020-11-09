@@ -387,9 +387,6 @@ export class Collection {
       let filterQuery = filterQueries[i];
       if ( Object.keys(filterQuery).length ) {
         const accumulator: any = {};
-        if ( filterQuery.$subQuery ) {
-          filterQuery = filterQuery.$subQuery;
-        }
         for ( const key in filterQuery ) {
           if ( this.schema.hasOwnProperty(key) ) {
             const propertyType: Types = this.schema[key].type;
