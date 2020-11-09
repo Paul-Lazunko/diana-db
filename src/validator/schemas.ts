@@ -78,7 +78,8 @@ const objectIdQuery = joi.object({
   $in: joi.array().items(objectIdField),
   $nin: joi.array().items(objectIdField),
   $eq: objectIdField,
-  $ne: objectIdField
+  $ne: objectIdField,
+  $subQuery: joi.any()
 });
 
 const booleanQuery = joi.object({
