@@ -151,7 +151,6 @@ export class AggregationFramework {
       itemItems[iid] = itemItems[iid] || [];
       itemItems[iid].push({ ...items[i], _id: iid });
     }
-    console.log(itemItems, projection);
     for (const iid in itemItems) {
       result[iid] = { _id: iid, ...this.projectionHelper.project(itemItems[iid], projection, true) };
     }
