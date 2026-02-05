@@ -6,4 +6,3 @@ export * from './request';
 export * from './point';
 export * from './user';
 export * from './update-query';
-export * from './distinct-query';
