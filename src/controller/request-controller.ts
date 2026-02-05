@@ -1,11 +1,12 @@
 import { DianaDB } from '@application';
-import { ClientActions, MigrationStatus, ServerActions, TransactionStatus } from '@const';
+import { clientAccess, ClientActions, DatabaseAccess, MigrationStatus, ServerActions, TransactionStatus } from '@const';
 import { Database } from '@database';
 import { ErrorFactory } from '@error';
 import { RequestControllerOptions } from '@options';
-import { RemoveResult, Request, Response, UpdateResult } from '@dto';
+import {RemoveResult, Request, Response, TransformQuery, UpdateResult} from '@dto';
 import { store } from '@store';
 import { logger } from '@logger';
+import { userReadStore } from '@user-store';
 
 export class RequestController {
   protected databases: Map<string, Database>;
@@ -52,8 +53,8 @@ export class RequestController {
         collection,
         action,
         filterQueries,
-        setData,
         transformQueries,
+        setData,
         sortQuery,
         skip,
         limit,
@@ -62,11 +63,28 @@ export class RequestController {
         schema,
         migration,
         distinctKey,
+        user,
       } = request;
-
       const db: Database = this.getDatabase(database, !this.nonRequiredDbActions.includes(action));
+      const hasGeneralDbAccess: boolean = this.checkDbAccess(user, database, DatabaseAccess.READ);
+      if (!hasGeneralDbAccess) {
+        throw new Error(`User "${user}" doesn't have access to the database "${database}"`);
+      }
+      const hasAccessToAction: boolean = this.checkClientActionAccess(user, database, action);
+      if (!hasAccessToAction) {
+        throw new Error(`Action "${action}" not allowed for user "${user}" in database "${database}"`);
+      }
       if (action !== ClientActions.ADD_COLLECTION && !this.nonRequiredCollectionActions.includes(action)) {
         this.checkCollectionExistence(db, collection);
+      }
+      if (Array.isArray(transformQueries) && transformQueries.length) {
+        const databases = transformQueries
+          .filter((item: TransformQuery) => item && item.$lookup && item.$lookup.database)
+          .map((item: TransformQuery) => item.$lookup.database);
+        const hasNoAccessTOThisDatabase: string = databases.find((database: string) => !this.checkDbAccess(user, database, DatabaseAccess.READ))
+        if (hasNoAccessTOThisDatabase) {
+          throw new Error(`User "${user}" doesn't have read access to the database "${hasNoAccessTOThisDatabase}"`);
+        }
       }
       switch (action) {
         case ClientActions.GET_MIGRATIONS:
@@ -177,5 +195,22 @@ export class RequestController {
     if (!db.collections.has(collection)) {
       throw ErrorFactory.databaseError(`collection '${collection}' doesn't exist`);
     }
+  }
+
+  private checkDbAccess(user: string, db: string, databaseAccess: DatabaseAccess): boolean {
+    const currentAccess = userReadStore.get(`user.${user}.db.${db}`);
+    if (!currentAccess) {
+      return false;
+    }
+    return parseInt(currentAccess, 10) >= databaseAccess;
+  }
+
+  private checkClientActionAccess(user: string, db: string, action: ClientActions): boolean {
+    const currentAccess = userReadStore.get(`user.${user}.db.${db}`);
+    const requiredAccess = clientAccess[action];
+    if (!currentAccess || !requiredAccess) {
+      return false;
+    }
+    return parseInt(currentAccess, 10) >= requiredAccess;
   }
 }
