@@ -16,3 +16,6 @@ export * from './queue';
 export * from './milliseconds-in';
 export * from './ssl';
 export * from './pointer-prefix';
+
+export * from './database-access';
+export * from './client-access';

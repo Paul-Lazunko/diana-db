@@ -12,7 +12,7 @@ export enum ClientActions {
   ROLLBACK_TRANSACTION = 'rollbackTransaction',
   MIGRATE_UP = 'migrateUp',
   MIGRATE_DOWN = 'migrateDown',
-  GET_MIGRATIONS = 'getMigration',
+  GET_MIGRATIONS = 'getMigrations',
   ADD_COLLECTION = 'addCollection',
   REMOVE_COLLECTION = 'removeCollection',
   UPDATE_COLLECTION = 'updateCollection',
