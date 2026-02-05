@@ -6,7 +6,7 @@ body:
     id: title
     attributes:
       label: Feature Title
-      placeholder: "e.g. Add replication between two Diana DB servers"
+      placeholder: 'e.g. Add replication between two Diana DB servers'
     validations:
       required: true
 
