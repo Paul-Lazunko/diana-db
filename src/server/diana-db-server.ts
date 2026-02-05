@@ -92,6 +92,7 @@ export class DianaDbServer {
               : CryptoHelper.decrypt(password, dataStringSplit[i]);
             const request: Request = JSON.parse(decryptedData);
             isPasswordCorrect = true;
+            request.user = user;
             request.socket = id;
             request.addressInfo = addressInfo;
             savedPreviousStringData = '';
