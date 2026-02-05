@@ -165,7 +165,6 @@ export class BaseDataHolder<T> implements DataHolder {
       } else if (/^(\d+)$/.test(k)) {
         k = parseInt(k, 10);
       }
-      console.log(`rawDK`, k, typeof k, rawDataKeys[key]);
       this.rawDataKeys.set(k, rawDataKeys[key]);
     }
     for (const key in rawDataValues) {
