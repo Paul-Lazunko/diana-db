@@ -140,7 +140,9 @@ export class RequestController {
           response.data = resultFind;
           break;
         case ClientActions.FIND_BY_VIEW:
-          const result: any[] = db.collections.get(collection).findByView(view, filterQueries[0], sortQuery, skip, limit);
+          const result: any[] = db.collections
+            .get(collection)
+            .findByView(view, filterQueries[0], sortQuery, skip, limit);
           response.data = result;
           break;
         case ClientActions.DISTINCT:
