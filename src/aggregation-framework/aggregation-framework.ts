@@ -146,13 +146,29 @@ export class AggregationFramework {
     const itemsLength: number = items.length;
     const itemItems: Record<string, any[]> = {};
     for (let i = 0; i < itemsLength; i = i + 1) {
-      const iid = isPointer(id) ? evaluatePointer(id, items[i]) : id;
+      const iid =
+        typeof id === 'object'
+          ? Object.values(id)
+              .map((v: any) => (isPointer(v) ? evaluatePointer(v, items[i]) : v))
+              .map((v: any) => v.toString())
+              .join('.')
+          : isPointer(id)
+            ? evaluatePointer(id, items[i])
+            : id;
       result[iid] = result[iid] || { _id: iid };
       itemItems[iid] = itemItems[iid] || [];
-      itemItems[iid].push({ ...items[i], _id: iid });
+      const itemId = typeof id === 'object' ? Object.assign({}, id) : iid;
+      if (typeof id === 'object') {
+        for (const key in id) {
+          if (isPointer(id[key])) {
+            itemId[key] = evaluatePointer(id[key], items[i]);
+          }
+        }
+      }
+      itemItems[iid].push({ ...items[i], _id: itemId });
     }
     for (const iid in itemItems) {
-      result[iid] = { _id: iid, ...this.projectionHelper.project(itemItems[iid], projection, true) };
+      result[iid] = { _id: itemItems[iid][0]._id, ...this.projectionHelper.project(itemItems[iid], projection, true) };
     }
     return Object.values(result);
   }
@@ -164,7 +180,6 @@ export class AggregationFramework {
   protected $match(items: any[], matchQuery: any) {
     for (const key in matchQuery) {
       const method: string = Object.keys(matchQuery[key])[0];
-
       items = this.matchHelper[method](items, key, matchQuery[key][method]);
     }
     return items;

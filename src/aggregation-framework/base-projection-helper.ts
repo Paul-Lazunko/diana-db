@@ -5,7 +5,7 @@ export class BaseProjectionHelper {
     const isPointerProp: boolean = isPointer(property);
     if (Array.isArray(item)) {
       if (isPointerProp) {
-        return ensurePointer(property, item);
+        return ensurePointer(property, item[last ? item.length - 1 : 0]);
       } else {
         return item[last ? item.length - 1 : 0][property];
       }

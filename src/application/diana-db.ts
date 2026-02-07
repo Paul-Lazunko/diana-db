@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'fs';
 import { v4 } from 'uuid';
 import { config } from '@config';
 import { ServerActions } from '@const';
-import { Request, User } from '@dto';
+import { NamingControl, Request, User } from '@dto';
 import { logger } from '@logger';
 import { store } from '@store';
 import { state } from '@state';

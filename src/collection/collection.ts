@@ -1,4 +1,4 @@
-import { ClientActions, ServerActions, Types } from '@const';
+import { ClientActions, DatabaseAccess, ServerActions, Types } from '@const';
 import { ConstructItems, FindQuery, RemoveResult, Sorting, UpdateData, UpdateResult } from '@dto';
 import { DataHolder } from '@data-holder';
 import { Database } from '@database';
@@ -8,7 +8,6 @@ import {
   arrayConcatenation,
   arrayExcluding,
   arrayIntersection,
-  ensurePointer,
   evaluatePointer,
   findValueWithMode,
   isPointer,
@@ -18,7 +17,7 @@ import {
 } from '@helper';
 import { Validator } from '@validator';
 import { TransactionsData } from './transactions-data';
-import { publishEventEmitter } from '@event-emitter';
+import { publishEventEmitter, viewEventEmitter } from '@event-emitter';
 import {
   ArrayFieldDefinition,
   NumberFieldDefinition,
@@ -28,10 +27,11 @@ import {
 } from './schema';
 import { TransformQuery } from '@dto';
 import { ErrorFactory } from '@error';
-import { string } from 'joi';
+import { triggerEventNamesExtractor } from '../helpers/trigger-event-names-extractor';
 
 export class Collection<T> {
   public name: string;
+  public viewTriggerEventName: string;
   public schema: Schema<T>;
   public schemaUpdated: Record<string, number>;
   public db: Database;
@@ -45,10 +45,19 @@ export class Collection<T> {
   private refs: Map<string, string | string[]>[] = [];
   private refsHolder: Map<string, string | string[]>[] = [];
   private relatedCollections: { [key: string]: string }[] = [];
+  public views: Record<string, { transformQueries: TransformQuery[]; items?: any[] }>;
+  private viewTriggerEventHandlers: Record<string, () => void>;
 
-  constructor(name: string, schema: Schema<T>, db: Database, schemaUpdated?: Record<string, number>) {
+  constructor(
+    name: string,
+    schema: Schema<T>,
+    db: Database,
+    schemaUpdated?: Record<string, number>,
+    views?: Record<string, { transformQueries: TransformQuery[]; schema: Schema<any>; items?: any[] }>,
+  ) {
     this.name = name;
     this.db = db;
+    this.viewTriggerEventName = `${db.name}.${name}`;
     this.schemaUpdated = schemaUpdated || {};
     this.schema = Object.assign({ _id: { type: Types.OBJECT_ID, unique: true } }, schema);
     for (const key in this.schema) {
@@ -59,6 +68,42 @@ export class Collection<T> {
     this.transactionsTimers = new Map<string, NodeJS.Timeout>();
     this.aggregationFrameWork = new AggregationFramework({ collection: this });
     this.validate = new Validator({ collection: this });
+    this.views = {};
+    this.viewTriggerEventHandlers = {};
+    for (const view in views) {
+      this.createView(view, views[view].transformQueries);
+    }
+  }
+
+  public createView(name: string, transformQueries: TransformQuery[]) {
+    this.validate.transformQueries(transformQueries);
+    this.views[name] = { transformQueries, items: [] };
+    this.db.addName(name);
+    const events = triggerEventNamesExtractor(transformQueries, this.db.name);
+    events.push(this.viewTriggerEventName);
+    for (const event of events) {
+      this.viewTriggerEventHandlers[name] = () => this.constructViewItems(name);
+      viewEventEmitter.on(event, this.viewTriggerEventHandlers[name]);
+    }
+    setTimeout(() => {
+      this.constructViewItems(name);
+    }, 0);
+  }
+
+  public removeView(name: string) {
+    if (this.views[name]) {
+      for (const event of viewEventEmitter.eventNames().slice()) {
+        viewEventEmitter.off(event, this.viewTriggerEventHandlers[name]);
+      }
+      delete this.views[name];
+      this.db.removeName(name);
+    }
+  }
+
+  protected constructViewItems(name: string) {
+    if (this.views[name] && typeof this.views[name] === 'object') {
+      this.views[name].items = this.find([{}], this.views[name].transformQueries);
+    }
   }
 
   public startTransaction(transactionId: string, ttl: number) {
@@ -198,6 +243,7 @@ export class Collection<T> {
     this.removeTransactionItems(transactionId);
     this.updateTransactionItems(transactionId);
     this.removeTransactionData(transactionId);
+    viewEventEmitter.emit(this.viewTriggerEventName);
   }
 
   public initRefs(
@@ -287,6 +333,7 @@ export class Collection<T> {
       }
     }
     if (!transactionExists) {
+      viewEventEmitter.emit(this.viewTriggerEventName);
       publishEventEmitter.emit('publish', {
         database: this.db.name,
         collection: this.name,
@@ -440,6 +487,7 @@ export class Collection<T> {
     result.removed = items.length;
     result.executionTime = Date.now() - result.executionTime;
     if (!transactionId && items.length) {
+      viewEventEmitter.emit(this.viewTriggerEventName);
       publishEventEmitter.emit(ServerActions.PUBLISH, {
         database: this.db.name,
         collection: this.name,
@@ -448,6 +496,33 @@ export class Collection<T> {
       });
     }
     return result;
+  }
+
+  findByView(view: string, $match: FindQuery, $sort?: Sorting, $skip?: number, $limit?: number) {
+    if (!this.views[view]) {
+      throw ErrorFactory.collectionError(`view "${view}" doesn't exist`);
+    }
+    const transformQueries: TransformQuery[] = [
+      {
+        $match,
+      },
+    ];
+    if ($sort) {
+      transformQueries.push({
+        $sort,
+      });
+    }
+    if ($skip) {
+      transformQueries.push({
+        $skip,
+      });
+    }
+    if ($limit) {
+      transformQueries.push({
+        $limit,
+      });
+    }
+    return this.aggregationFrameWork.aggregate(this.views[view].items, transformQueries);
   }
 
   public update(filterQueries: FindQuery[], updateData: UpdateData<any>, transactionId?: string): UpdateResult {
@@ -528,6 +603,7 @@ export class Collection<T> {
     }
     result.executionTime = Date.now() - result.executionTime;
     if (!transactionExists && result.modified) {
+      viewEventEmitter.emit(this.viewTriggerEventName);
       publishEventEmitter.emit('publish', {
         database: this.db.name,
         collection: this.name,

@@ -8,6 +8,7 @@
    diana-db stop    [-c /path/to/config]
    diana-db add-user    -u <username> -p <password>
    diana-db grant-access    -u <username> -db <db:level>
+   diana-db remove-access    -u <username> -db <db>
    diana-db remove-user -u <username>
    diana-db list-backups
    diana-db create-backup -n <name>
@@ -22,7 +23,7 @@ import { resolve } from 'path';
 import { execSync, spawn } from 'child_process';
 
 // const { version } = require('../../package.json');
-const version = '1.5.0';
+const version = '1.6.0';
 import { userWriteStore } from '@user-store';
 
 const envMapping = {
@@ -194,6 +195,21 @@ try {
       userWriteStore.set(`user.${username}.db.${db}`, access);
       userWriteStore.store();
       console.log(`Granted access to database "${db}" level ${access} for user "${username}"`);
+      break;
+    }
+    case 'remove-access': {
+      echoName();
+      const uIdx = rest.indexOf('-u');
+      const dbIdx = rest.indexOf('-db');
+      const username = uIdx !== -1 ? rest[uIdx + 1] : undefined;
+      const db = dbIdx !== -1 ? rest[dbIdx + 1] : undefined;
+      if (!username || !db) {
+        warn('remove-access requires -u <username> -db <database>');
+        process.exit(1);
+      }
+      userWriteStore.set(`user.${username}.db.${db}`, undefined);
+      userWriteStore.store();
+      console.log(`Removed access to database "${db}" for user "${username}"`);
       break;
     }
     case 'remove-user': {

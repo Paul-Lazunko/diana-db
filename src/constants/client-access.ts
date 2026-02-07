@@ -2,28 +2,31 @@ import { ClientActions } from './client-actions';
 import { DatabaseAccess } from './database-access';
 
 export const clientAccess: Record<ClientActions, DatabaseAccess> = {
-  addCollection: DatabaseAccess.WRITE,
-  addUser: DatabaseAccess.RESTRICTED, // cli-only
-  commitTransaction: DatabaseAccess.WRITE,
-  count: DatabaseAccess.READ,
-  createDatabase: DatabaseAccess.MODIFY, //
-  distinct: DatabaseAccess.READ,
-  find: DatabaseAccess.READ,
-  getCollectionNames: DatabaseAccess.READ,
-  getCollectionSchema: DatabaseAccess.READ,
-  getDatabaseNames: DatabaseAccess.READ, //
-  getMigrations: DatabaseAccess.WRITE,
-  grantAccess: DatabaseAccess.RESTRICTED, // cli-only action
-  insert: DatabaseAccess.WRITE,
-  max: DatabaseAccess.READ,
-  migrateDown: DatabaseAccess.WRITE,
-  migrateUp: DatabaseAccess.WRITE,
-  min: DatabaseAccess.READ,
-  remove: DatabaseAccess.WRITE,
-  removeCollection: DatabaseAccess.MODIFY,
-  removeUser: DatabaseAccess.RESTRICTED, // cli-only action
-  rollbackTransaction: DatabaseAccess.WRITE,
-  startTransaction: DatabaseAccess.WRITE,
-  update: DatabaseAccess.WRITE,
-  updateCollection: DatabaseAccess.WRITE,
+  [ClientActions.REMOVE_VIEW]: DatabaseAccess.WRITE,
+  [ClientActions.ADD_VIEW]: DatabaseAccess.READ,
+  [ClientActions.FIND_BY_VIEW]: DatabaseAccess.READ,
+  [ClientActions.ADD_COLLECTION]: DatabaseAccess.WRITE,
+  [ClientActions.ADD_USER]: DatabaseAccess.RESTRICTED,
+  [ClientActions.COMMIT_TRANSACTION]: DatabaseAccess.WRITE, //
+  [ClientActions.COUNT]: DatabaseAccess.READ,
+  [ClientActions.CREATE_DATABASE]: DatabaseAccess.MODIFY,
+  [ClientActions.DISTINCT]: DatabaseAccess.READ,
+  [ClientActions.FIND]: DatabaseAccess.READ,
+  [ClientActions.GET_COLLECTION_NAMES]: DatabaseAccess.READ, //
+  [ClientActions.GET_COLLECTION_SCHEMA]: DatabaseAccess.READ,
+  [ClientActions.GET_DATABASE_NAMES]: DatabaseAccess.READ, // cli-only action
+  [ClientActions.GET_MIGRATIONS]: DatabaseAccess.WRITE,
+  [ClientActions.GRANT_ACCESS]: DatabaseAccess.RESTRICTED,
+  [ClientActions.INSERT]: DatabaseAccess.WRITE,
+  [ClientActions.MAX]: DatabaseAccess.READ,
+  [ClientActions.MIGRATE_DOWN]: DatabaseAccess.WRITE,
+  [ClientActions.MIGRATE_UP]: DatabaseAccess.WRITE,
+  [ClientActions.MIN]: DatabaseAccess.READ,
+  [ClientActions.REMOVE]: DatabaseAccess.WRITE, // cli-only action
+  [ClientActions.REMOVE_COLLECTION]: DatabaseAccess.MODIFY,
+  [ClientActions.REMOVE_USER]: DatabaseAccess.RESTRICTED,
+  [ClientActions.ROLLBACK_TRANSACTION]: DatabaseAccess.WRITE,
+  [ClientActions.START_TRANSACTION]: DatabaseAccess.WRITE,
+  [ClientActions.UPDATE]: DatabaseAccess.WRITE,
+  [ClientActions.UPDATE_COLLECTION]: DatabaseAccess.WRITE,
 };

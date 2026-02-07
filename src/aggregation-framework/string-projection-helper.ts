@@ -4,13 +4,13 @@ import { evaluatePointer, isPointer } from '@helper';
 export class StringProjectionHelper extends BaseProjectionHelper {
   public $first(item: any, key: string, value: string, root: any) {
     if (!root[key]) {
-      root[key] = isPointer(key) ? this.getItemProperty(item, value) : key;
+      root[key] = isPointer(value) ? this.getItemProperty(item, value) : key;
     }
   }
 
   public $last(item: any, key: string, value: string, root: any) {
     if (!root[key]) {
-      root[key] = isPointer(key) ? this.getItemProperty(item, value, true) : key;
+      root[key] = isPointer(value) ? this.getItemProperty(item, value, true) : key;
     }
   }
 

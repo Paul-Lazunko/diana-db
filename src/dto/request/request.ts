@@ -1,8 +1,8 @@
 import { ClientActions } from '@const';
-import { FindQuery } from '../find-query';
 import { Schema } from '@collection';
-import {TransformQuery} from "../transform-query";
-import {Sorting} from "../sorting";
+import { FindQuery } from '../find-query';
+import { TransformQuery } from '../transform-query';
+import { Sorting } from '../sorting';
 
 export interface Request {
   addressInfo?: any;
@@ -13,6 +13,7 @@ export interface Request {
   user?: string;
   database: string;
   collection: string;
+  view?: string;
   action: ClientActions;
   filterQueries?: FindQuery[];
   distinctKey?: string;

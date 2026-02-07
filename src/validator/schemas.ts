@@ -314,7 +314,7 @@ const transformQueries = joi.array().items(
       $replaceRoot: joi.string(),
       $group: joi
         .object({
-          _id: joi.string().required(),
+          _id: joi.any().required(),
         })
         .pattern(/^(?!.*\_id$)/, joi.alternatives(projectionSchema, joi.string(), joi.boolean())),
       $project: joi

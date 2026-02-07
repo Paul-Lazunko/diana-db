@@ -33,12 +33,22 @@ export class MatchHelper {
     return items.filter((item: any) => !value.includes(item[key]));
   }
 
-  $contains(items: any, key: string, value: any) {
+  $cn(items: any, key: string, value: any) {
     return items.filter((item: any) => {
       if (Array.isArray(item[key])) {
         return item[key].includes(ensurePointer(value, item));
       } else {
         return item[key].toString().match(ensurePointer(value, item).toString());
+      }
+    });
+  }
+
+  $nc(items: any, key: string, value: any) {
+    return items.filter((item: any) => {
+      if (Array.isArray(item[key])) {
+        return !item[key].includes(ensurePointer(value, item));
+      } else {
+        return !item[key].toString().match(ensurePointer(value, item).toString());
       }
     });
   }
@@ -52,6 +62,18 @@ export class MatchHelper {
   $endsWith(items: any, key: string, value: any) {
     return items.filter((item: any) => {
       return item[key].toString().endsWith(ensurePointer(value, item).toString());
+    });
+  }
+
+  $notStartsWith(items: any, key: string, value: any) {
+    return items.filter((item: any) => {
+      return !item[key].toString().startsWith(ensurePointer(value, item).toString());
+    });
+  }
+
+  $notEndsWith(items: any, key: string, value: any) {
+    return items.filter((item: any) => {
+      return !item[key].toString().endsWith(ensurePointer(value, item).toString());
     });
   }
 }

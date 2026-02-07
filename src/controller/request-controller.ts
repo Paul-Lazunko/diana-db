@@ -3,7 +3,7 @@ import { clientAccess, ClientActions, DatabaseAccess, MigrationStatus, ServerAct
 import { Database } from '@database';
 import { ErrorFactory } from '@error';
 import { RequestControllerOptions } from '@options';
-import {RemoveResult, Request, Response, TransformQuery, UpdateResult} from '@dto';
+import { RemoveResult, Request, Response, TransformQuery, UpdateResult } from '@dto';
 import { store } from '@store';
 import { logger } from '@logger';
 import { userReadStore } from '@user-store';
@@ -64,15 +64,16 @@ export class RequestController {
         migration,
         distinctKey,
         user,
+        view,
       } = request;
       const db: Database = this.getDatabase(database, !this.nonRequiredDbActions.includes(action));
       const hasGeneralDbAccess: boolean = this.checkDbAccess(user, database, DatabaseAccess.READ);
       if (!hasGeneralDbAccess) {
-        throw new Error(`User "${user}" doesn't have access to the database "${database}"`);
+        throw ErrorFactory.databaseError(`User "${user}" doesn't have access to the database "${database}"`);
       }
       const hasAccessToAction: boolean = this.checkClientActionAccess(user, database, action);
       if (!hasAccessToAction) {
-        throw new Error(`Action "${action}" not allowed for user "${user}" in database "${database}"`);
+        throw ErrorFactory.databaseError(`Action "${action}" not allowed for user "${user}" in database "${database}"`);
       }
       if (action !== ClientActions.ADD_COLLECTION && !this.nonRequiredCollectionActions.includes(action)) {
         this.checkCollectionExistence(db, collection);
@@ -81,9 +82,13 @@ export class RequestController {
         const databases = transformQueries
           .filter((item: TransformQuery) => item && item.$lookup && item.$lookup.database)
           .map((item: TransformQuery) => item.$lookup.database);
-        const hasNoAccessTOThisDatabase: string = databases.find((database: string) => !this.checkDbAccess(user, database, DatabaseAccess.READ))
-        if (hasNoAccessTOThisDatabase) {
-          throw new Error(`User "${user}" doesn't have read access to the database "${hasNoAccessTOThisDatabase}"`);
+        const hasNoAccessToThisDatabase: string = databases.find(
+          (database: string) => !this.checkDbAccess(user, database, DatabaseAccess.READ),
+        );
+        if (hasNoAccessToThisDatabase) {
+          throw ErrorFactory.databaseError(
+            `User "${user}" doesn't have read access to the database "${hasNoAccessToThisDatabase}"`,
+          );
         }
       }
       switch (action) {
@@ -101,6 +106,14 @@ export class RequestController {
             delete this.dianaDB.migrations[migration];
             response.data = { migration: { name: migration, status: MigrationStatus.DOWN } };
           }
+          break;
+        case ClientActions.ADD_VIEW:
+          db.collections.get(collection).createView(view, transformQueries);
+          response.data = { createdView: view };
+          break;
+        case ClientActions.REMOVE_VIEW:
+          db.collections.get(collection).removeView(view);
+          response.data = { removedView: view };
           break;
         case ClientActions.ADD_COLLECTION:
           db.createCollection(collection, schema);
@@ -125,6 +138,10 @@ export class RequestController {
             .get(collection)
             .find(filterQueries, transformQueries, sortQuery, skip, limit, transactionId);
           response.data = resultFind;
+          break;
+        case ClientActions.FIND_BY_VIEW:
+          const result: any[] = db.collections.get(collection).findByView(view, filterQueries[0], sortQuery, skip, limit);
+          response.data = result;
           break;
         case ClientActions.DISTINCT:
           const resultDistinct: any[] = db.collections.get(collection).distinct(distinctKey);

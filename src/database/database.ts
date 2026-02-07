@@ -8,7 +8,7 @@ import { DatabaseOptions } from '@options';
 import { DataHolder } from '@data-holder';
 import { autoRollbackValidator, schemaItemValidator } from '@validator';
 import { addTTLHandler, removeTTLHandler, addStoreHandler, removeStoreHandler } from '@event-emitter';
-import { config } from '@config';
+import { TransformQuery } from '@dto';
 
 export class Database {
   protected static databases: Map<string, Database> = new Map<string, Database>();
@@ -17,6 +17,7 @@ export class Database {
   public collections: Map<string, Collection<any>>;
   public Types: Map<Types, Field>;
   public restored: boolean;
+  private names: Set<string>;
 
   constructor(options: DatabaseOptions) {
     if (Database.databases.has(options.name)) {
@@ -25,10 +26,23 @@ export class Database {
     const { name, dianaDB } = options;
     this.collections = new Map<string, Collection<any>>();
     this.name = name;
+    this.names = new Set<string>();
     this.dianaDB = dianaDB;
     this.init();
     addStoreHandler(this.name, this.store.bind(this));
     Database.databases.set(name, this);
+  }
+
+  public addName(name: string) {
+    this.names.add(name);
+  }
+
+  public removeName(name: string) {
+    this.names.delete(name);
+  }
+
+  public hasName(name: string) {
+    return this.names.has(name);
   }
 
   private init() {
@@ -48,7 +62,15 @@ export class Database {
     }
   }
 
-  public createCollection<T>(collection: string, schema: Schema<T>, schemaUpdated?: Record<string, number>) {
+  public createCollection<T>(
+    collection: string,
+    schema: Schema<T>,
+    schemaUpdated?: Record<string, number>,
+    views?: Record<string, { transformQueries: TransformQuery[]; schema: Schema<any>; items?: any[] }>,
+  ) {
+    if (this.names.has(collection)) {
+      throw ErrorFactory.databaseError(`collection or view "${collection}" exists already`);
+    }
     if (this.collections.has(collection)) {
       this.collections.get(collection).schema = Object.assign({ _id: { type: Types.OBJECT_ID, unique: true } }, schema);
       return this.collections.get(collection);
@@ -61,6 +83,7 @@ export class Database {
           Object.assign({ _id: { type: Types.OBJECT_ID, unique: true } }, schema),
           this,
           schemaUpdated,
+          views,
         ),
       );
     }
@@ -98,6 +121,9 @@ export class Database {
       }
     }
     addTTLHandler(collection, this.collections.get(collection).ttlHandler.bind(this.collections.get(collection)));
+    if (!this.names.has(collection)) {
+      this.names.add(collection);
+    }
   }
 
   public removeCollection(collection: string) {
@@ -106,6 +132,9 @@ export class Database {
       const c: Collection<any> = this.collections.get(collection);
       for (const key in c.schema) {
         this.Types.get(c.schema[key].type).removeCollectionKey(collection);
+      }
+      if (this.names.has(collection)) {
+        this.names.delete(collection);
       }
     }
   }
@@ -188,13 +217,23 @@ export class Database {
     const result: any = {
       collections: {},
       fields: {},
+      names: [],
     };
     this.collections.forEach((collection: Collection<any>, name: string) => {
       result.collections[name] = {
         schema: collection.schema,
         schemaUpdated: collection.schemaUpdated,
         identifiers: Array.from(collection.identifiers),
+        names: [
+          name,
+          ...Array.from(Object.keys(collection.views)),
+        ],
+        views: {},
       };
+      for (const key in collection.views) {
+        const view = collection.views[key];
+        result.collections[name].views[key] = { transformQueries: view.transformQueries };
+      }
     });
     this.Types.forEach((type: Field, name: Types) => {
       result.fields[name] = {};
@@ -212,7 +251,7 @@ export class Database {
     const { collections, fields } = data;
     if (collections) {
       for (const key in collections) {
-        this.createCollection(key, collections[key].schema, collections[key].schemaUpdated);
+        this.createCollection(key, collections[key].schema, collections[key].schemaUpdated, collections[key].views);
         if (collections[key].identifiers) {
           this.collections.get(key).identifiers =
             new Set(Array.from(collections[key].identifiers)) || this.collections.get(key).identifiers;

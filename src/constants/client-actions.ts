@@ -1,6 +1,7 @@
 export enum ClientActions {
   INSERT = 'insert',
   FIND = 'find',
+  FIND_BY_VIEW = 'findByView',
   DISTINCT = 'distinct',
   MAX = 'max',
   MIN = 'min',
@@ -14,6 +15,8 @@ export enum ClientActions {
   MIGRATE_DOWN = 'migrateDown',
   GET_MIGRATIONS = 'getMigrations',
   ADD_COLLECTION = 'addCollection',
+  ADD_VIEW = 'addView',
+  REMOVE_VIEW = 'removeView',
   REMOVE_COLLECTION = 'removeCollection',
   UPDATE_COLLECTION = 'updateCollection',
   GET_COLLECTION_NAMES = 'getCollectionNames',
