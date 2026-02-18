@@ -21,7 +21,45 @@ export class NumberHolder extends BaseDataHolder<number> {
       const oldValue = this.rawDataValues.get(data.identifier);
       for (const action in data.value) {
         switch (action) {
-          case '$add':
+          case '$addItem':
+            if (Array.isArray(oldValue)) {
+              data.value = Array.isArray(data.value[action])
+                ? [
+                  ...oldValue,
+                  ...data.value[action],
+                ]
+                : [
+                  ...oldValue,
+                  data.value[action],
+                ];
+            } else if (oldValue) {
+              data.value = Array.isArray(data.value[action])
+                ? [
+                  oldValue,
+                  ...data.value[action],
+                ]
+                : [
+                  oldValue,
+                  data.value[action],
+                ];
+            } else {
+              data.value = data.value[action];
+            }
+            break;
+          case '$removeItem':
+            if (Array.isArray(oldValue)) {
+              data.value = Array.isArray(data.value[action])
+                ? oldValue.filter((el: number) => !data.value[action].includes(el))
+                : oldValue.filter((el: number) => data.value[action] !== el);
+            } else if (oldValue) {
+              data.value = Array.isArray(data.value[action])
+                ? [oldValue].filter((el: number) => !data.value[action].includes(el))
+                : [oldValue].filter((el: number) => data.value[action] !== el);
+            } else {
+              data.value = data.value[action];
+            }
+            break;
+          case '$sum':
             if (Array.isArray(oldValue)) {
               data.value = oldValue.map((v: number) => v + data.value[action]);
             } else {

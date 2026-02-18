@@ -72,7 +72,7 @@ export class DianaDbServer {
         }
         this.sockets.get(id).user = user;
         dataString = restParts.join('\n');
-        logger.info(`Connected user "${user}" ${isSubscriber ? ' (subscriber) ' : ''} from IP ${addressInfo.address}`);
+        logger.info(`Connected user "${user}" ${isSubscriber ? ' (subscriber) ' : ''}from IP ${addressInfo.address}`);
       } else if (this.sockets.get(id).user) {
         user = this.sockets.get(id).user;
         if (!userReadStore.get(`user.${user}`)) {
@@ -92,7 +92,7 @@ export class DianaDbServer {
               : CryptoHelper.decrypt(password, dataStringSplit[i]);
             const request: Request = JSON.parse(decryptedData);
             isPasswordCorrect = true;
-            request.user = user;
+            request.user = user || this.sockets.get(id)?.user;
             request.socket = id;
             request.addressInfo = addressInfo;
             savedPreviousStringData = '';

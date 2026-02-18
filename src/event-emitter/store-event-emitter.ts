@@ -1,6 +1,8 @@
 import { EventEmitter } from 'events';
 import { STORE_EE_EVENT_NAME, STORE_EE_EVENT_TIMER } from '@const';
 import { store } from '@store';
+import { writeFileSync } from 'fs';
+import { config } from '@config';
 
 const handlers: Map<string, any> = new Map<string, any>();
 const rootHandlers: Map<string, any> = new Map<string, any>();
@@ -19,7 +21,7 @@ const removeStoreHandler = (database: string) => {
 
 const storeEventEmitter: EventEmitter = new EventEmitter();
 
-storeEventEmitter.on(STORE_EE_EVENT_NAME, () => {
+storeEventEmitter.on(STORE_EE_EVENT_NAME, async () => {
   if (!store.get('db')) {
     store.set('db', {});
   }
@@ -29,10 +31,10 @@ storeEventEmitter.on(STORE_EE_EVENT_NAME, () => {
   rootHandlers.forEach((handler: () => any, prop: string) => {
     store.set(prop, handler());
   });
+  await store.store();
   setTimeout(() => {
     storeEventEmitter.emit(STORE_EE_EVENT_NAME);
   }, STORE_EE_EVENT_TIMER);
 });
-storeEventEmitter.emit(STORE_EE_EVENT_NAME);
 
-export { addStoreHandler, removeStoreHandler, addRootHandler };
+export { addStoreHandler, removeStoreHandler, addRootHandler, storeEventEmitter };

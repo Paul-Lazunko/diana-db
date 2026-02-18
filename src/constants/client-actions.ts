@@ -2,6 +2,7 @@ export enum ClientActions {
   INSERT = 'insert',
   FIND = 'find',
   FIND_BY_VIEW = 'findByView',
+  COUNT_BY_VIEW = 'countByView',
   DISTINCT = 'distinct',
   MAX = 'max',
   MIN = 'min',

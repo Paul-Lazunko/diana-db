@@ -95,10 +95,10 @@ const geoField = joi.alternatives(
 
 const arrayExtended = joi
   .object({
-    $add: joi.any(),
-    $remove: joi.any(),
+    $addItem: joi.any(),
+    $removeItem: joi.any(),
   })
-  .min(1);
+  .min(1).max(1);
 
 const arrayOfNumberField = joi.alternatives(joi.array().items(numberFieldExtended), arrayExtended);
 const arrayOfStringField = joi.alternatives(joi.array().items(stringField), arrayExtended);
@@ -212,7 +212,7 @@ const schemaItem = joi
         is: Types.ARRAY,
         then: joi
           .string()
-          .valid(...Object.values(Types))
+          .valid(Types.STRING, Types.NUMBER)
           .required(),
       })
       .when('type', {

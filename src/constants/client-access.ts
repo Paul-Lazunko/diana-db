@@ -5,6 +5,7 @@ export const clientAccess: Record<ClientActions, DatabaseAccess> = {
   [ClientActions.REMOVE_VIEW]: DatabaseAccess.WRITE,
   [ClientActions.ADD_VIEW]: DatabaseAccess.READ,
   [ClientActions.FIND_BY_VIEW]: DatabaseAccess.READ,
+  [ClientActions.COUNT_BY_VIEW]: DatabaseAccess.READ,
   [ClientActions.ADD_COLLECTION]: DatabaseAccess.WRITE,
   [ClientActions.ADD_USER]: DatabaseAccess.RESTRICTED,
   [ClientActions.COMMIT_TRANSACTION]: DatabaseAccess.WRITE, //

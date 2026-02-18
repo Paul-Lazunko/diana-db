@@ -7,12 +7,14 @@ import { RemoveResult, Request, Response, TransformQuery, UpdateResult } from '@
 import { store } from '@store';
 import { logger } from '@logger';
 import { userReadStore } from '@user-store';
+import { state } from '@state';
 
 export class RequestController {
   protected databases: Map<string, Database>;
   protected dianaDB: DianaDB;
 
   protected nonRequiredCollectionActions: string[] = [
+    ClientActions.GET_DATABASE_NAMES,
     ClientActions.MIGRATE_DOWN,
     ClientActions.MIGRATE_UP,
     ClientActions.GET_MIGRATIONS,
@@ -29,12 +31,14 @@ export class RequestController {
     ClientActions.GET_MIGRATIONS,
     ClientActions.ADD_USER,
     ClientActions.REMOVE_USER,
+    ClientActions.GET_DATABASE_NAMES,
   ];
 
   constructor(options: RequestControllerOptions) {
     const { databases, dianaDB } = options;
     this.dianaDB = dianaDB;
     this.databases = databases;
+    userReadStore.init();
   }
 
   public processRequest(request: Request): Response {
@@ -68,7 +72,7 @@ export class RequestController {
       } = request;
       const db: Database = this.getDatabase(database, !this.nonRequiredDbActions.includes(action));
       const hasGeneralDbAccess: boolean = this.checkDbAccess(user, database, DatabaseAccess.READ);
-      if (!hasGeneralDbAccess) {
+      if (!hasGeneralDbAccess && !this.nonRequiredDbActions.includes(action)) {
         throw ErrorFactory.databaseError(`User "${user}" doesn't have access to the database "${database}"`);
       }
       const hasAccessToAction: boolean = this.checkClientActionAccess(user, database, action);
@@ -92,6 +96,9 @@ export class RequestController {
         }
       }
       switch (action) {
+        case ClientActions.GET_DATABASE_NAMES:
+          response.data = this.getDatabases(user);
+          break;
         case ClientActions.GET_MIGRATIONS:
           response.data = Object.keys(this.dianaDB.migrations);
           break;
@@ -145,6 +152,9 @@ export class RequestController {
             .findByView(view, filterQueries[0], sortQuery, skip, limit);
           response.data = result;
           break;
+        case ClientActions.COUNT_BY_VIEW:
+          response.data = db.collections.get(collection).countByView(view, filterQueries[0]);
+          break;
         case ClientActions.DISTINCT:
           const resultDistinct: any[] = db.collections.get(collection).distinct(distinctKey);
           response.data = resultDistinct;
@@ -196,6 +206,14 @@ export class RequestController {
     }
     response.executionTime = Date.now() - response.executionTime;
     return response;
+  }
+
+  protected getDatabases(user: string): string[] {
+    if (!user) {
+      return [];
+    }
+    const databases = Array.from(state.injected.dianaDB.databases.keys());
+    return databases.filter((database: string) => this.checkDbAccess(user, database, DatabaseAccess.READ));
   }
 
   private getDatabase(name: string, throwError?: boolean) {

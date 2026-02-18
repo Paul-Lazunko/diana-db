@@ -21,10 +21,17 @@
 import { readdirSync, existsSync, readFileSync, copyFileSync, accessSync, constants, statSync } from 'fs';
 import { resolve } from 'path';
 import { execSync, spawn } from 'child_process';
+import { Datanautics } from 'datanautics';
+import { config } from '@config';
 
 // const { version } = require('../../package.json');
-const version = '1.6.0';
-import { userWriteStore } from '@user-store';
+const version = '1.8.3';
+
+const userWriteStore: Datanautics = new Datanautics({
+  pathToDumpFile: `${config.dumpDirectory}/users`,
+  storingInterval: 1000,
+  writer: true,
+});
 
 const envMapping = {
   binary_path: 'BIN_PATH',
@@ -123,6 +130,21 @@ function startServer(env) {
   console.log(`Server started (PID ${child.pid}).`);
 }
 
+function addUser(username: string, password: string) {
+  userWriteStore.set(`user.${username}.user`, username);
+  userWriteStore.set(`user.${username}.password`, password);
+}
+
+function grantAccess(username: string, db: string, access: string) {
+  userWriteStore.set(`user.${username}.db.${db}`, access);
+}
+function removeAccess(username: string, db: string) {
+  userWriteStore.set(`user.${username}.db.${db}`, undefined);
+}
+function removeUser(username: string) {
+  userWriteStore.set(`user.${username}`, undefined);
+}
+
 const argv = process.argv.slice(2);
 if (argv.length === 0) {
   warn('Usage: diana-db <start|stop|add-user|remove-user> [options]');
@@ -143,182 +165,186 @@ if (cIdx !== -1 && rest[cIdx + 1]) {
 if (cIdxLong !== -1 && rest[cIdxLong + 1]) {
   confPath = resolve(rest[cIdxLong + 1]);
 }
-try {
-  switch (command) {
-    case 'start': {
-      echoName();
-      stopServer();
-      const envObj: Record<string, string> = parseConfig(confPath);
-      startServer(envObj);
-      break;
-    }
-    case 'stop': {
-      echoName();
-      stopServer();
-      console.log('Stopped the Server');
-      break;
-    }
-    case 'add-user': {
-      echoName();
-      const uIdx = rest.indexOf('-u');
-      const pIdx = rest.indexOf('-p');
-      const username = uIdx !== -1 ? rest[uIdx + 1] : undefined;
-      const password = pIdx !== -1 ? rest[pIdx + 1] : undefined;
-      if (!username || !password) {
-        warn('add-user requires -u <username> -p <password>');
-        process.exit(1);
-      }
-      userWriteStore.set(`user.${username}.user`, username);
-      userWriteStore.set(`user.${username}.password`, password);
-      userWriteStore.store();
-      console.log(`Added user "${username}"`);
-      break;
-    }
-    case 'grant-access': {
-      echoName();
-      const uIdx = rest.indexOf('-u');
-      const dbIdx = rest.indexOf('-db');
-      const username = uIdx !== -1 ? rest[uIdx + 1] : undefined;
-      const dbAccess = dbIdx !== -1 ? rest[dbIdx + 1] : undefined;
-      if (!username || !dbIdx) {
-        warn('grant-access requires -u <username> -db <database:accessLevel>');
-        process.exit(1);
-      }
-      if (!/[\w_\-]+:[1,2,3]{1}$/.test(dbAccess)) {
-        warn('grant-access -db parameter should be <database_name:1|2|3>');
-        process.exit(1);
-      }
-      const [
-        db,
-        access,
-      ] = dbAccess.split(':');
-      userWriteStore.set(`user.${username}.db.${db}`, access);
-      userWriteStore.store();
-      console.log(`Granted access to database "${db}" level ${access} for user "${username}"`);
-      break;
-    }
-    case 'remove-access': {
-      echoName();
-      const uIdx = rest.indexOf('-u');
-      const dbIdx = rest.indexOf('-db');
-      const username = uIdx !== -1 ? rest[uIdx + 1] : undefined;
-      const db = dbIdx !== -1 ? rest[dbIdx + 1] : undefined;
-      if (!username || !db) {
-        warn('remove-access requires -u <username> -db <database>');
-        process.exit(1);
-      }
-      userWriteStore.set(`user.${username}.db.${db}`, undefined);
-      userWriteStore.store();
-      console.log(`Removed access to database "${db}" for user "${username}"`);
-      break;
-    }
-    case 'remove-user': {
-      echoName();
-      const uIdx = rest.indexOf('-u');
-      const username = uIdx !== -1 ? rest[uIdx + 1] : undefined;
-      if (!username) {
-        warn('remove-user requires -u <username>');
-        process.exit(1);
-      }
-      userWriteStore.set(`user.${username}`, undefined);
-      userWriteStore.store();
-      console.log(`Removed user "${username}"`);
-      break;
-    }
-    case '-v':
-    case '--version': {
-      echoName();
-      break;
-    }
-    case 'list-backups': {
-      echoName();
-      const envObj: Record<string, string> = parseConfig(confPath);
-      const backups = readdirSync(envObj.DIANA_DB_DUMP_DIRECTORY);
-      console.log(
-        backups
-          .filter(
-            (filename: string) =>
-              ![
-                'users',
-                'current.didb',
-              ].includes(filename),
-          )
-          .join('\r\n'),
-      );
-      break;
-    }
-    case 'create-backup': {
-      echoName();
-      const envObj: Record<string, string> = parseConfig(confPath);
-      const nIdx = rest.indexOf('-n');
-      const name = nIdx !== -1 ? rest[nIdx + 1] : undefined;
-      if (!name) {
-        warn('create-backup requires -n <backup_name>');
-        process.exit(1);
-      }
-      copyFileSync(`${envObj.DIANA_DB_DUMP_DIRECTORY}/current.didb`, `${envObj.DIANA_DB_DUMP_DIRECTORY}/${name}.didb`);
-      console.log(`${envObj.DIANA_DB_DUMP_DIRECTORY}/${name}.didb`);
-      break;
-    }
-    case 'apply-backup': {
-      echoName();
-      const envObj: Record<string, string> = parseConfig(confPath);
-      const nIdx = rest.indexOf('-n');
-      const name = nIdx !== -1 ? rest[nIdx + 1] : undefined;
-      if (!name) {
-        warn('create-backup requires -n <backup_name>');
-        process.exit(1);
-      }
-      const backupPath: string = `${envObj.DIANA_DB_DUMP_DIRECTORY}/${name}.didb`;
-      const currentPath: string = `${envObj.DIANA_DB_DUMP_DIRECTORY}/current.didb`;
-      let pid: string;
-      try {
-        pid = execSync(`pidof ${SERVER_PROC_NAME}`, {
-          stdio: [
-            'ignore',
-            'pipe',
-            'ignore',
-          ],
-        })
-          .toString()
-          .trim();
-      } catch {
-        //
-      }
-      if (pid) {
-        warn(`DianaDb Server should be stopped before the applying of the backup`);
-        process.exit(1);
-      }
-      try {
-        accessSync(currentPath, constants.W_OK);
-      } catch {
-        warn(`Couldn't write the file ${currentPath}`);
-        process.exit(1);
-      }
-      if (!existsSync(backupPath)) {
-        warn(`File ${backupPath} doesn't exist`);
-        process.exit(1);
-      }
-      try {
-        accessSync(backupPath, constants.R_OK);
-      } catch {
-        console.warn(`Couldn't read the file ${backupPath}`);
-        process.exit(1);
-      }
-      copyFileSync(backupPath, `${envObj.DIANA_DB_DUMP_DIRECTORY}/current.didb`);
-      console.log(`Backup applied ${envObj.DIANA_DB_DUMP_DIRECTORY}/${name}.didb`);
-      break;
-    }
 
-    default:
-      warn(`Unknown command ${command}`);
-      process.exit(1);
-      break;
+async function main() {
+  try {
+    await userWriteStore.init();
+    switch (command) {
+      case 'start': {
+        echoName();
+        stopServer();
+        const envObj: Record<string, string> = parseConfig(confPath);
+        startServer(envObj);
+        break;
+      }
+      case 'stop': {
+        echoName();
+        stopServer();
+        console.log('Stopped the Server');
+        break;
+      }
+      case 'add-user': {
+        echoName();
+        const uIdx = rest.indexOf('-u');
+        const pIdx = rest.indexOf('-p');
+        const username = uIdx !== -1 ? rest[uIdx + 1] : undefined;
+        const password = pIdx !== -1 ? rest[pIdx + 1] : undefined;
+        if (!username || !password) {
+          warn('add-user requires -u <username> -p <password>');
+          process.exit(1);
+        }
+        addUser(username, password);
+        console.log(`Added user "${username}"`);
+        break;
+      }
+      case 'grant-access': {
+        echoName();
+        const uIdx = rest.indexOf('-u');
+        const dbIdx = rest.indexOf('-db');
+        const username = uIdx !== -1 ? rest[uIdx + 1] : undefined;
+        const dbAccess = dbIdx !== -1 ? rest[dbIdx + 1] : undefined;
+        if (!username || !dbIdx) {
+          warn('grant-access requires -u <username> -db <database:accessLevel>');
+          process.exit(1);
+        }
+        if (!/[\w_\-]+:[1,2,3]{1}$/.test(dbAccess)) {
+          warn('grant-access -db parameter should be <database_name:1|2|3>');
+          process.exit(1);
+        }
+        const [
+          db,
+          access,
+        ] = dbAccess.split(':');
+        grantAccess(username, db, access);
+        console.log(`Granted access to database "${db}" level ${access} for user "${username}"`);
+        break;
+      }
+      case 'remove-access': {
+        echoName();
+        const uIdx = rest.indexOf('-u');
+        const dbIdx = rest.indexOf('-db');
+        const username = uIdx !== -1 ? rest[uIdx + 1] : undefined;
+        const db = dbIdx !== -1 ? rest[dbIdx + 1] : undefined;
+        if (!username || !db) {
+          warn('remove-access requires -u <username> -db <database>');
+          process.exit(1);
+        }
+        removeAccess(username, db);
+        console.log(`Removed access to database "${db}" for user "${username}"`);
+        break;
+      }
+      case 'remove-user': {
+        echoName();
+        const uIdx = rest.indexOf('-u');
+        const username = uIdx !== -1 ? rest[uIdx + 1] : undefined;
+        if (!username) {
+          warn('remove-user requires -u <username>');
+          process.exit(1);
+        }
+        removeUser(username);
+        console.log(`Removed user "${username}"`);
+        break;
+      }
+      case '-v':
+      case '--version': {
+        echoName();
+        break;
+      }
+      case 'list-backups': {
+        echoName();
+        const envObj: Record<string, string> = parseConfig(confPath);
+        const backups = readdirSync(envObj.DIANA_DB_DUMP_DIRECTORY);
+        console.log(
+          backups
+            .filter(
+              (filename: string) =>
+                ![
+                  'users',
+                  'current.didb',
+                ].includes(filename),
+            )
+            .join('\r\n'),
+        );
+        break;
+      }
+      case 'create-backup': {
+        echoName();
+        const envObj: Record<string, string> = parseConfig(confPath);
+        const nIdx = rest.indexOf('-n');
+        const name = nIdx !== -1 ? rest[nIdx + 1] : undefined;
+        if (!name) {
+          warn('create-backup requires -n <backup_name>');
+          process.exit(1);
+        }
+        copyFileSync(
+          `${envObj.DIANA_DB_DUMP_DIRECTORY}/current.didb`,
+          `${envObj.DIANA_DB_DUMP_DIRECTORY}/${name}.didb`,
+        );
+        console.log(`${envObj.DIANA_DB_DUMP_DIRECTORY}/${name}.didb`);
+        break;
+      }
+      case 'apply-backup': {
+        echoName();
+        const envObj: Record<string, string> = parseConfig(confPath);
+        const nIdx = rest.indexOf('-n');
+        const name = nIdx !== -1 ? rest[nIdx + 1] : undefined;
+        if (!name) {
+          warn('create-backup requires -n <backup_name>');
+          process.exit(1);
+        }
+        const backupPath: string = `${envObj.DIANA_DB_DUMP_DIRECTORY}/${name}.didb`;
+        const currentPath: string = `${envObj.DIANA_DB_DUMP_DIRECTORY}/current.didb`;
+        let pid: string;
+        try {
+          pid = execSync(`pidof ${SERVER_PROC_NAME}`, {
+            stdio: [
+              'ignore',
+              'pipe',
+              'ignore',
+            ],
+          })
+            .toString()
+            .trim();
+        } catch {
+          //
+        }
+        if (pid) {
+          warn(`DianaDb Server should be stopped before the applying of the backup`);
+          process.exit(1);
+        }
+        try {
+          accessSync(currentPath, constants.W_OK);
+        } catch {
+          warn(`Couldn't write the file ${currentPath}`);
+          process.exit(1);
+        }
+        if (!existsSync(backupPath)) {
+          warn(`File ${backupPath} doesn't exist`);
+          process.exit(1);
+        }
+        try {
+          accessSync(backupPath, constants.R_OK);
+        } catch {
+          console.warn(`Couldn't read the file ${backupPath}`);
+          process.exit(1);
+        }
+        copyFileSync(backupPath, `${envObj.DIANA_DB_DUMP_DIRECTORY}/current.didb`);
+        console.log(`Backup applied ${envObj.DIANA_DB_DUMP_DIRECTORY}/${name}.didb`);
+        break;
+      }
+
+      default:
+        warn(`Unknown command ${command}`);
+        process.exit(1);
+        break;
+    }
+    await userWriteStore.store();
+  } catch (e) {
+    warn(e.message);
   }
-} catch (e) {
-  warn(e.message);
 }
-
-setTimeout(() => {
-  process.exit(0);
-}, 500);
+main()
+  .catch(console.error)
+  .finally(() => {
+    process.exit(0);
+  });

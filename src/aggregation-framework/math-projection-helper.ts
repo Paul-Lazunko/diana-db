@@ -81,127 +81,136 @@ export class MathProjectionHelper extends BaseProjectionHelper {
   }
 
   protected $sum(items: any[], key: string, value: any[], root: any) {
-    let result: number = 0;
-    const item: any = items[0];
-    const _value = Object.assign([], value);
-    while (_value.length) {
-      const valueItem: any = _value.shift();
-      if (!valueItem) {
-        throw ErrorFactory.transformError(`property '${valueItem}' is not valid`);
-      }
-      if (typeof valueItem === 'string') {
-        const intermediateValue = isPointer(valueItem) ? ensurePointer(valueItem, item) : convertToNumeric(valueItem);
-        if (typeof intermediateValue !== 'number') {
-          throw ErrorFactory.transformError(`property '${valueItem}' is not a number`);
+    root[key] = root[key] || 0;
+    for (const item of items) {
+      let result: number = 0;
+      const _value = Object.assign([], value);
+      while (_value.length) {
+        const valueItem: any = _value.shift();
+        if (!valueItem) {
+          throw ErrorFactory.transformError(`property '${valueItem}' is not valid`);
         }
-        result = result + intermediateValue;
-      } else if (typeof valueItem === 'number') {
-        result = result + valueItem;
-      } else if (typeof valueItem === 'object') {
-        this.processSubQuery(item, valueItem);
-        try {
-          valueItem[objectFirstKeyHelper(valueItem)] = convertToNumeric(valueItem[objectFirstKeyHelper(valueItem)]);
-        } catch (e) {
-          logger.error(e);
+        if (typeof valueItem === 'string') {
+          const intermediateValue = isPointer(valueItem) ? ensurePointer(valueItem, item) : convertToNumeric(valueItem);
+          if (typeof intermediateValue !== 'number') {
+            throw ErrorFactory.transformError(`property '${valueItem}' is not a number`);
+          }
+          result = result + intermediateValue;
+        } else if (typeof valueItem === 'number') {
+          result = result + valueItem;
+        } else if (typeof valueItem === 'object') {
+          this.processSubQuery(item, valueItem);
+          try {
+            valueItem[objectFirstKeyHelper(valueItem)] = convertToNumeric(valueItem[objectFirstKeyHelper(valueItem)]);
+          } catch (e) {
+            logger.error(e);
+          }
+          result = result + valueItem[objectFirstKeyHelper(valueItem)];
         }
-        result = result + valueItem[objectFirstKeyHelper(valueItem)];
       }
+      root[key] += result;
     }
-    root[key] = result;
   }
 
   protected $subtract(items: any[], key: string, value: any[], root: any) {
-    let result: number = 0;
-    const item: any = items[0];
-    const _value = Object.assign([], value);
-    while (_value.length) {
-      const valueItem: any = _value.shift();
-      if (!valueItem) {
-        throw ErrorFactory.transformError(`property '${valueItem}' is not valid`);
-      }
-      if (typeof valueItem === 'string') {
-        const intermediateValue = isPointer(valueItem) ? ensurePointer(valueItem, item) : convertToNumeric(valueItem);
-        if (typeof intermediateValue !== 'number') {
-          throw ErrorFactory.transformError(`property '${valueItem}' is not a number`);
+    root[key] = root[key] || 0;
+    for (const item of items) {
+      let result: number = 0;
+      const _value = Object.assign([], value);
+      while (_value.length) {
+        const valueItem: any = _value.shift();
+        if (!valueItem) {
+          throw ErrorFactory.transformError(`property '${valueItem}' is not valid`);
         }
-        result = result ? result - intermediateValue : intermediateValue;
-      } else if (typeof valueItem === 'number') {
-        result = result ? result - valueItem : valueItem;
-      } else if (typeof valueItem === 'object') {
-        this.processSubQuery(item, valueItem);
-        try {
-          valueItem[objectFirstKeyHelper(valueItem)] = convertToNumeric(valueItem[objectFirstKeyHelper(valueItem)]);
-        } catch (e) {
-          logger.error(e);
+        if (typeof valueItem === 'string') {
+          const intermediateValue = isPointer(valueItem) ? ensurePointer(valueItem, item) : convertToNumeric(valueItem);
+          if (typeof intermediateValue !== 'number') {
+            throw ErrorFactory.transformError(`property '${valueItem}' is not a number`);
+          }
+          result = result ? result - intermediateValue : intermediateValue;
+        } else if (typeof valueItem === 'number') {
+          result = result ? result - valueItem : valueItem;
+        } else if (typeof valueItem === 'object') {
+          this.processSubQuery(item, valueItem);
+          try {
+            valueItem[objectFirstKeyHelper(valueItem)] = convertToNumeric(valueItem[objectFirstKeyHelper(valueItem)]);
+          } catch (e) {
+            logger.error(e);
+          }
+          result = result
+            ? result - valueItem[objectFirstKeyHelper(valueItem)]
+            : valueItem[objectFirstKeyHelper(valueItem)];
         }
-        result = result
-          ? result - valueItem[objectFirstKeyHelper(valueItem)]
-          : valueItem[objectFirstKeyHelper(valueItem)];
       }
+      root[key] -= result;
     }
-    root[key] = result;
   }
 
   protected $divide(items: any[], key: string, value: any[], root?: any) {
-    let result: number = 1;
-    const item: any = items[0];
-    const _value = Object.assign([], value);
-    while (_value.length) {
-      const valueItem: any = _value.shift();
-      if (!valueItem) {
-        throw ErrorFactory.transformError(`property '${valueItem}' is not valid`);
-      }
-      if (typeof valueItem === 'string') {
-        const intermediateValue = isPointer(valueItem) ? ensurePointer(valueItem, item) : convertToNumeric(valueItem);
-        if (typeof intermediateValue !== 'number') {
-          throw ErrorFactory.transformError(`property '${valueItem}' is not a number`);
+    root[key] = root[key] || 1;
+    for (const item of items) {
+      let result: number = 1;
+      const item: any = items[0];
+      const _value = Object.assign([], value);
+      while (_value.length) {
+        const valueItem: any = _value.shift();
+        if (!valueItem) {
+          throw ErrorFactory.transformError(`property '${valueItem}' is not valid`);
         }
-        result = result ? result / intermediateValue : intermediateValue;
-      } else if (typeof valueItem === 'number') {
-        result = result ? result / valueItem : valueItem;
-      } else if (typeof valueItem === 'object') {
-        this.processSubQuery(item, valueItem);
-        try {
-          valueItem[objectFirstKeyHelper(valueItem)] = parseFloat(valueItem[objectFirstKeyHelper(valueItem)]);
-        } catch (e) {
-          logger.error(e);
+        if (typeof valueItem === 'string') {
+          const intermediateValue = isPointer(valueItem) ? ensurePointer(valueItem, item) : convertToNumeric(valueItem);
+          if (typeof intermediateValue !== 'number') {
+            throw ErrorFactory.transformError(`property '${valueItem}' is not a number`);
+          }
+          result = result ? result / intermediateValue : intermediateValue;
+        } else if (typeof valueItem === 'number') {
+          result = result ? result / valueItem : valueItem;
+        } else if (typeof valueItem === 'object') {
+          this.processSubQuery(item, valueItem);
+          try {
+            valueItem[objectFirstKeyHelper(valueItem)] = parseFloat(valueItem[objectFirstKeyHelper(valueItem)]);
+          } catch (e) {
+            logger.error(e);
+          }
+          result = result
+            ? result / valueItem[objectFirstKeyHelper(valueItem)]
+            : valueItem[objectFirstKeyHelper(valueItem)];
         }
-        result = result
-          ? result / valueItem[objectFirstKeyHelper(valueItem)]
-          : valueItem[objectFirstKeyHelper(valueItem)];
       }
+      root[key] = root[key] / result;
     }
-    root[key] = result;
   }
 
   protected $multiply(items: any[], key: string, value: any[], root?: any) {
-    let result: number = 1;
-    const item: any = items[0];
-    const _value = Object.assign([], value);
-    while (_value.length) {
-      const valueItem: any = _value.shift();
-      if (!valueItem) {
-        throw ErrorFactory.transformError(`property '${valueItem}' is not valid`);
-      }
-      if (typeof valueItem === 'string') {
-        const intermediateValue = isPointer(valueItem) ? ensurePointer(valueItem, item) : convertToNumeric(valueItem);
-        if (typeof intermediateValue !== 'number') {
-          throw ErrorFactory.transformError(`property '${valueItem}' is not a number`);
+    root[key] = root[key] || 1;
+    for (const item of items) {
+      let result: number = 1;
+      const _value = Object.assign([], value);
+      while (_value.length) {
+        const valueItem: any = _value.shift();
+        if (!valueItem) {
+          throw ErrorFactory.transformError(`property '${valueItem}' is not valid`);
         }
-        result = result * intermediateValue;
-      } else if (typeof valueItem === 'number') {
-        result = result * valueItem;
-      } else if (typeof valueItem === 'object') {
-        this.processSubQuery(item, valueItem);
-        try {
-          valueItem[objectFirstKeyHelper(valueItem)] = convertToNumeric(valueItem[objectFirstKeyHelper(valueItem)]);
-        } catch (e) {
-          logger.error(e);
+        if (typeof valueItem === 'string') {
+          const intermediateValue = isPointer(valueItem) ? ensurePointer(valueItem, item) : convertToNumeric(valueItem);
+          if (typeof intermediateValue !== 'number') {
+            throw ErrorFactory.transformError(`property '${valueItem}' is not a number`);
+          }
+          result = result * intermediateValue;
+        } else if (typeof valueItem === 'number') {
+          result = result * valueItem;
+        } else if (typeof valueItem === 'object') {
+          this.processSubQuery(item, valueItem);
+          try {
+            valueItem[objectFirstKeyHelper(valueItem)] = convertToNumeric(valueItem[objectFirstKeyHelper(valueItem)]);
+          } catch (e) {
+            logger.error(e);
+          }
+          result = result * valueItem[objectFirstKeyHelper(valueItem)];
         }
-        result = result * valueItem[objectFirstKeyHelper(valueItem)];
       }
+      root[key] = root[key] * result;
     }
-    root[key] = result;
   }
 
   private ensureNumeric(item: any, value: any): number {
@@ -225,30 +234,33 @@ export class MathProjectionHelper extends BaseProjectionHelper {
   }
 
   protected $max(items: any[], key: string, value: any[], root?: any) {
-    const item: any = items[0];
-    const result: number = this.ensureNumeric(item, value);
-    if (typeof result === 'number') {
-      root[key] = typeof root[key] === 'number' ? (result > root[key] ? result : root[key]) : result;
+    for (const item of items) {
+      const result: number = this.ensureNumeric(item, value);
+      if (typeof result === 'number') {
+        root[key] = typeof root[key] === 'number' ? (result > root[key] ? result : root[key]) : result;
+      }
     }
   }
 
   protected $min(items: any[], key: string, value: any, root?: any) {
-    const item: any = items[0];
-    const result: number = this.ensureNumeric(item, value);
-    if (typeof result === 'number') {
-      root[key] = typeof root[key] === 'number' ? (result < root[key] ? result : root[key]) : result;
+    for (const item of items) {
+      const result: number = this.ensureNumeric(item, value);
+      if (typeof result === 'number') {
+        root[key] = typeof root[key] === 'number' ? (result < root[key] ? result : root[key]) : result;
+      }
     }
   }
 
   protected $avg(items: any[], key: string, value: any, root?: any, itemsLength?: number, currentIndex?: number) {
-    const item: any = items[0];
-    const v: number = this.ensureNumeric(item, value);
-    root[key] = root[key] || [];
-    if (value) {
-      root[key].push(v);
-    }
-    if (currentIndex === itemsLength - 1) {
-      root[key] = root[key].reduce((a, b) => a + b, 0) / root[key].length;
+    for (const item of items) {
+      const v: number = this.ensureNumeric(item, value);
+      root[key] = root[key] || [];
+      if (value) {
+        root[key].push(v);
+      }
+      if (currentIndex === itemsLength - 1) {
+        root[key] = root[key].reduce((a, b) => a + b, 0) / root[key].length;
+      }
     }
   }
 

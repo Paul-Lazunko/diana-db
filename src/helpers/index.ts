@@ -6,3 +6,4 @@ export * from './random-string-generator';
 export * from './round';
 export * from './evaluate-pointer';
 export * from './convert-to-numeric';
+export * from './monitor';

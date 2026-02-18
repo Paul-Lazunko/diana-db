@@ -107,6 +107,8 @@ export class ReferenceHolder implements DataHolder {
   }
 
   update(params: DataHolderMethodsParams<string>, data: DataHolderMethodsParams<string>) {
+
+
     this.remove(params);
     this.create(data);
   }

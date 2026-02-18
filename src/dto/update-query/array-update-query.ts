@@ -1,4 +1,4 @@
 export type ArrayUpdateQuery = {
-  $add: any;
-  $remove: any;
+  $addItem: any;
+  $removeItem: any;
 };

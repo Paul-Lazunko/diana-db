@@ -131,18 +131,18 @@ export class AggregationFramework {
     }
   }
 
-  protected $skip(items, skip) {
+  protected $skip(items: any[], skip: number) {
     items.slice(skip, items.length);
   }
 
-  protected $limit(items, limit) {
+  protected $limit(items: any[], limit: number) {
     items.slice(0, limit > items.length ? items.length : limit);
   }
 
   protected $group(items: any[], options: any) {
     const { _id, ...projection } = options;
     const result: Record<string, any> = {};
-    const id = _id || '$_id';
+    const id = typeof _id === 'undefined' ? '$_id' : _id;
     const itemsLength: number = items.length;
     const itemItems: Record<string, any[]> = {};
     for (let i = 0; i < itemsLength; i = i + 1) {
@@ -155,8 +155,9 @@ export class AggregationFramework {
           : isPointer(id)
             ? evaluatePointer(id, items[i])
             : id;
-      result[iid] = result[iid] || { _id: iid };
-      itemItems[iid] = itemItems[iid] || [];
+      const iidKey = typeof iid === 'object' ? JSON.stringify(iid) : iid;
+      result[iidKey] = result[iidKey] || { _id: iid };
+      itemItems[iidKey] = itemItems[iidKey] || [];
       const itemId = typeof id === 'object' ? Object.assign({}, id) : iid;
       if (typeof id === 'object') {
         for (const key in id) {
@@ -165,7 +166,7 @@ export class AggregationFramework {
           }
         }
       }
-      itemItems[iid].push({ ...items[i], _id: itemId });
+      itemItems[iidKey].push({ ...items[i], _id: itemId });
     }
     for (const iid in itemItems) {
       result[iid] = { _id: itemItems[iid][0]._id, ...this.projectionHelper.project(itemItems[iid], projection, true) };
@@ -174,7 +175,7 @@ export class AggregationFramework {
   }
 
   protected $project(items: any[], options: any) {
-    return this.projectionHelper.project(items, options, true);
+    return this.projectionHelper.project(items, options, false);
   }
 
   protected $match(items: any[], matchQuery: any) {

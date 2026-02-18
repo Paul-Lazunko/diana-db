@@ -1,18 +1,25 @@
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { v4 } from 'uuid';
 import { config } from '@config';
-import { ServerActions } from '@const';
-import { NamingControl, Request, User } from '@dto';
+import { DUMP_EE_EVENT_NAME, ServerActions, STORE_EE_EVENT_NAME } from '@const';
+import { Request, User } from '@dto';
 import { logger } from '@logger';
 import { store } from '@store';
 import { state } from '@state';
-import { addRootHandler, publishEventEmitter } from '@event-emitter';
+import { addRootHandler, dumpEventEmitter, publishEventEmitter, storeEventEmitter } from '@event-emitter';
 import { DianaDbServer } from '@server';
 import { Database } from '@database';
 import { RequestController } from '@controller';
 import { ErrorFactory } from '@error';
 import { configurationValidator } from '@validator';
 import { DatabaseUpdate } from '@parameters';
+import { userReadStore } from '@user-store';
+import { monitorEventEmitter } from '../event-emitter/monitor-event-emitter';
+
+const signals = [
+  'SIGINT',
+  'SIGTERM',
+];
 export class DianaDB {
   public databases: Map<string, Database>;
   public users: Map<string, User>;
@@ -53,17 +60,20 @@ export class DianaDB {
     }
   }
 
-  public start() {
+  public async start() {
     try {
       logger.info('Restoring...');
-      this.restore();
+      await this.restore();
+      logger.info('Restored successfully');
+      storeEventEmitter.emit(STORE_EE_EVENT_NAME);
     } catch (e) {
       logger.info('Restore Error:');
       logger.error(e);
-      throw ErrorFactory.restoreError(e.message);
+      // throw ErrorFactory.restoreError(e.message);
     }
     this.server.start();
     logger.info(`DianaDb Server has been started (pid: ${process.pid})`);
+    monitorEventEmitter.emit('monitor');
   }
 
   public stop() {
@@ -78,12 +88,14 @@ export class DianaDB {
   }
 
   public store() {
-    return this.databases.forEach((database: Database) => {
+    return this.databases.forEach(async (database: Database) => {
       store.set(`db.${database.name}`, database.store());
     });
   }
 
-  protected restore() {
+  protected async restore() {
+    await store.init();
+    await userReadStore.init();
     const databases: any = store.get('db');
     if (databases) {
       for (const database in databases) {

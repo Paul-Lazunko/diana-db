@@ -46,7 +46,8 @@ export class Collection<T> {
   private refsHolder: Map<string, string | string[]>[] = [];
   private relatedCollections: { [key: string]: string }[] = [];
   public views: Record<string, { transformQueries: TransformQuery[]; items?: any[] }>;
-  private viewTriggerEventHandlers: Record<string, () => void>;
+  private readonly viewTriggerEventHandlers: Record<string, () => void>;
+  private readonly viewTriggerEventHandlersStates: Record<string, boolean>;
 
   constructor(
     name: string,
@@ -70,6 +71,7 @@ export class Collection<T> {
     this.validate = new Validator({ collection: this });
     this.views = {};
     this.viewTriggerEventHandlers = {};
+    this.viewTriggerEventHandlersStates = {};
     for (const view in views) {
       this.createView(view, views[view].transformQueries);
     }
@@ -79,10 +81,19 @@ export class Collection<T> {
     this.validate.transformQueries(transformQueries);
     this.views[name] = { transformQueries, items: [] };
     this.db.addName(name);
-    const events = triggerEventNamesExtractor(transformQueries, this.db.name);
+    let events = triggerEventNamesExtractor(transformQueries, this.db.name);
     events.push(this.viewTriggerEventName);
+    events = Array.from(new Set(events));
     for (const event of events) {
-      this.viewTriggerEventHandlers[name] = () => this.constructViewItems(name);
+      this.viewTriggerEventHandlers[name] = () => {
+        if (!this.viewTriggerEventHandlersStates[name]) {
+          this.viewTriggerEventHandlersStates[name] = true;
+          setTimeout(() => {
+            this.constructViewItems(name);
+            this.viewTriggerEventHandlersStates[name] = false;
+          }, 0);
+        }
+      };
       viewEventEmitter.on(event, this.viewTriggerEventHandlers[name]);
     }
     setTimeout(() => {
@@ -286,7 +297,6 @@ export class Collection<T> {
     this.validateData(data, transactionId);
     data._id = _id;
     const result: any = { _id: data._id };
-
     const transactionExists: boolean = transactionId && this.transactionsData.has(transactionId);
     if (transactionExists) {
       this.transactionsData.get(transactionId).inserted.push(data._id);
@@ -327,7 +337,6 @@ export class Collection<T> {
             identifier: result._id,
             value,
           });
-
           result[key] = data[key];
           break;
       }
@@ -523,6 +532,25 @@ export class Collection<T> {
       });
     }
     return this.aggregationFrameWork.aggregate(this.views[view].items, transformQueries);
+  }
+
+  countByView(view: string, $match: FindQuery): number {
+    if (!this.views[view]) {
+      throw ErrorFactory.collectionError(`view "${view}" doesn't exist`);
+    }
+    const transformQueries: TransformQuery[] = [
+      {
+        $match,
+      },
+      {
+        $group: {
+          _id: '',
+          count: { $sum: [1] },
+        },
+      },
+    ];
+    const result = this.aggregationFrameWork.aggregate(this.views[view].items, transformQueries);
+    return (result && result[0] && result[0].count) || 0;
   }
 
   public update(filterQueries: FindQuery[], updateData: UpdateData<any>, transactionId?: string): UpdateResult {

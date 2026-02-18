@@ -31,4 +31,5 @@ class Injector<T> {
 
 export const state = new Injector<{
   dianaDB: DianaDB;
+  health: Record<string, number>;
 }>();
