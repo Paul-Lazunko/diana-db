@@ -15,67 +15,65 @@ export function getDayOfYear(date: Date): number {
   const diff: number = date.getTime() - startOfYear.getTime();
   return Math.round(diff / oneDayInMilliseconds);
 }
+function daysBetweenMonthsSafe(initialDate: number, monthAmount: number) {
+  const start = new Date(initialDate);
 
-function isLeapYear(year: number) {
-  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
-}
+  const targetYear = start.getFullYear();
+  const targetMonth = start.getMonth() + monthAmount;
 
-function getUnitsOfTime(unit: UnitOfTime, amount: number, initialValue: number): string[] {
-  const result: string[] = [];
-  if (
-    ![
-      UnitOfTime.YEAR,
-      UnitOfTime.MONTH,
-    ].includes(unit as any)
-  ) {
-    for (let i = 0; i < amount; i = i + 1) {
-      result.push('DAY' as keyof MillisecondsIn);
-    }
-    return result;
-  }
-  const date = new Date(initialValue);
-  if (unit === UnitOfTime.MONTH) {
-    let year = date.getFullYear();
-    let month = date.getMonth();
-    for (let i = 0; i < amount; i = i + 1) {
-      if (month === 1) {
-        result.push(isLeapYear(year) ? 'MONTH29' : 'MONTH28');
-      } else if (
-        [
-          0,
-          2,
-          4,
-          6,
-          7,
-          9,
-          11,
-        ].includes(month)
-      ) {
-        result.push('MONTH31');
-      } else {
-        result.push('MONTH30');
-      }
-      year += month === 11 ? 1 : 0;
-      month = month === 11 ? 0 : month + 1;
-    }
-    return result;
-  } else if (unit === UnitOfTime.YEAR) {
-    let year = date.getFullYear();
-    for (let i = 0; i < amount; i = i + 1) {
-      result.push(isLeapYear(year) ? 'YEAR366' : 'YEAR365');
-      year += 1;
-    }
-    return result;
-  }
+  const end = new Date(targetYear, targetMonth, 1);
+
+  const lastDayOfTargetMonth = new Date(end.getFullYear(), end.getMonth() + 1, 0).getDate();
+
+  const day = Math.min(start.getDate(), lastDayOfTargetMonth);
+
+  end.setDate(day);
+
+  const utcStart = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+
+  const utcEnd = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
+
+  return (utcEnd - utcStart) / (1000 * 60 * 60 * 24);
 }
 
 export function addUnitOfTime(initialValue: number, amount: number, unit: UnitOfTime, multiplier: -1 | 1): number {
-  let result = initialValue;
-  const units = getUnitsOfTime(unit, amount, initialValue);
-  for (const u of units) {
-    result += multiplier * MillisecondsIn[u];
+  const date = new Date(initialValue);
+  const value = amount * multiplier;
+
+  switch (unit) {
+    case UnitOfTime.YEAR:
+      date.setFullYear(date.getFullYear() + value);
+      return date.getTime();
+
+    case UnitOfTime.MONTH: {
+      const day = date.getDate();
+      date.setMonth(date.getMonth() + value);
+      const lastDay = new Date(date.getFullYear(), date.getMonth(), 0).getDate();
+      date.setDate(Math.min(day, lastDay));
+      return date.getTime();
+    }
+
+    case UnitOfTime.WEEK:
+      return initialValue + value * 7 * MillisecondsIn.DAY;
+
+    case UnitOfTime.DAY:
+      return initialValue + value * MillisecondsIn.DAY;
+
+    case UnitOfTime.HOUR:
+      return initialValue + value * MillisecondsIn.HOUR;
+
+    case UnitOfTime.MINUTE:
+      return initialValue + value * MillisecondsIn.MINUTE;
+
+    case UnitOfTime.SECOND:
+      return initialValue + value * MillisecondsIn.SECOND;
+
+    case UnitOfTime.MILLISECOND:
+      return initialValue + value;
+
+    default:
+      return initialValue;
   }
-  return result;
 }
 
 export function toStartOf(initialValue: number, unit: UnitOfTime): number {

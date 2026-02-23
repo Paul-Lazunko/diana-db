@@ -88,6 +88,7 @@ export class DianaDB {
   }
 
   public store() {
+    store.set(`migrations`, this.migrations || {});
     return this.databases.forEach(async (database: Database) => {
       store.set(`db.${database.name}`, database.store());
     });
@@ -97,6 +98,10 @@ export class DianaDB {
     await store.init();
     await userReadStore.init();
     const databases: any = store.get('db');
+    const migrations = store.get('migrations');
+    if (migrations && typeof migrations === 'object') {
+      this.migrations = migrations
+    }
     if (databases) {
       for (const database in databases) {
         if (!this.databases.has(database)) {

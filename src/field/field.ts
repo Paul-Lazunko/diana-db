@@ -9,6 +9,7 @@ export class Field {
   private readonly dataHolderConstructor: any;
   public data: Map<string, Map<string, DataHolder>>;
   public transactions: Map<string, Map<string, Map<string, DataHolder>>>;
+  protected shadowReference: string;
 
   constructor(options: TypeOptions) {
     const { type, database } = options;
@@ -16,7 +17,7 @@ export class Field {
     this.type = type as Exclude<Types, Types.ARRAY>;
     this.data = new Map<string, Map<string, DataHolder>>();
     this.transactions = new Map<string, Map<string, Map<string, DataHolder>>>();
-
+    this.shadowReference = '';
     this.dataHolderConstructor = DataHolderConstructor[type];
   }
 
@@ -35,17 +36,23 @@ export class Field {
 
   public getDataHolder(): DataHolder {
     if (this.type === Types.REFERENCE) {
-      return new this.dataHolderConstructor(this.database) as DataHolder;
+      return new this.dataHolderConstructor(this.database, this.shadowReference) as DataHolder;
     }
 
     return new this.dataHolderConstructor(QueryProcessorConstructor[this.type]) as DataHolder;
   }
 
-  public addCollectionTransactionKey(collection: string, key: string) {
+  public addCollectionTransactionKey(collection: string, key: string, reference?: string) {
     if (!this.transactions.has(collection)) {
       this.transactions.set(collection, new Map<string, Map<string, DataHolder>>());
     }
     this.transactions.get(collection).set(key, new Map<string, DataHolder>());
+    if (this.type === Types.REFERENCE) {
+      const referenceHolderExists: boolean = this.transactions.get(collection).has(key);
+      if (referenceHolderExists) {
+        this.shadowReference = reference;
+      }
+    }
   }
 
   public removeCollectionKey(collection: string) {

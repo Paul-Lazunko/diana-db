@@ -25,7 +25,7 @@ import { Datanautics } from 'datanautics';
 import { config } from '@config';
 
 // const { version } = require('../../package.json');
-const version = '1.8.3';
+const version = '1.9.0';
 
 const userWriteStore: Datanautics = new Datanautics({
   pathToDumpFile: `${config.dumpDirectory}/users`,
@@ -280,7 +280,7 @@ async function main() {
           `${envObj.DIANA_DB_DUMP_DIRECTORY}/current.didb`,
           `${envObj.DIANA_DB_DUMP_DIRECTORY}/${name}.didb`,
         );
-        console.log(`${envObj.DIANA_DB_DUMP_DIRECTORY}/${name}.didb`);
+        console.log(`${envObj.DIANA_DB_DUMP_DIRECTORY}/${name}.didb created`);
         break;
       }
       case 'apply-backup': {

@@ -98,14 +98,15 @@ const arrayExtended = joi
     $addItem: joi.any(),
     $removeItem: joi.any(),
   })
-  .min(1).max(1);
+  .min(1)
+  .max(1);
 
 const arrayOfNumberField = joi.alternatives(joi.array().items(numberFieldExtended), arrayExtended);
 const arrayOfStringField = joi.alternatives(joi.array().items(stringField), arrayExtended);
-const arrayOfBooleanField = joi.alternatives(joi.array().items(booleanField), arrayExtended);
-const arrayOfTimeField = joi.alternatives(joi.array().items(timeField), arrayExtended);
-const arrayOfObjectIdField = joi.alternatives(joi.array().items(objectIdField), arrayExtended);
-const arrayOfGeoField = joi.alternatives(joi.array().items(geoField), arrayExtended);
+const arrayOfBooleanField = joi.array().items(booleanField);
+const arrayOfTimeField = joi.array().items(timeField);
+const arrayOfObjectIdField = joi.array().items(objectIdField);
+const arrayOfGeoField = joi.array().items(geoField);
 
 const numberQuery = joi.alternatives().try(
   joi.object({
@@ -212,12 +213,12 @@ const schemaItem = joi
         is: Types.ARRAY,
         then: joi
           .string()
-          .valid(Types.STRING, Types.NUMBER)
+          .valid(...Object.values(Types))
           .required(),
       })
       .when('type', {
         not: Types.ARRAY,
-        then: joi.forbidden,
+        then: joi.forbidden(),
       }),
     precision: joi
       .when('type', {
@@ -226,7 +227,7 @@ const schemaItem = joi
       })
       .when('type', {
         not: Types.NUMBER,
-        then: joi.forbidden,
+        then: joi.forbidden(),
       }),
     reference: joi
       .when('type', {

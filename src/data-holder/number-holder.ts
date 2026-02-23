@@ -25,23 +25,23 @@ export class NumberHolder extends BaseDataHolder<number> {
             if (Array.isArray(oldValue)) {
               data.value = Array.isArray(data.value[action])
                 ? [
-                  ...oldValue,
-                  ...data.value[action],
-                ]
+                    ...oldValue,
+                    ...data.value[action],
+                  ]
                 : [
-                  ...oldValue,
-                  data.value[action],
-                ];
-            } else if (oldValue) {
+                    ...oldValue,
+                    data.value[action],
+                  ];
+            } else if (oldValue || oldValue === 0) {
               data.value = Array.isArray(data.value[action])
                 ? [
-                  oldValue,
-                  ...data.value[action],
-                ]
+                    oldValue,
+                    ...data.value[action],
+                  ]
                 : [
-                  oldValue,
-                  data.value[action],
-                ];
+                    oldValue,
+                    data.value[action],
+                  ];
             } else {
               data.value = data.value[action];
             }

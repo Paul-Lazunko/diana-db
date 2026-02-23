@@ -1,4 +1,5 @@
 export enum MillisecondsIn {
+  MILLISECOND = 1,
   SECOND = 1000,
   MINUTE = 60 * SECOND,
   HOUR = 60 * MINUTE,

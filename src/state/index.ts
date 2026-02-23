@@ -33,3 +33,7 @@ export const state = new Injector<{
   dianaDB: DianaDB;
   health: Record<string, number>;
 }>();
+
+process.on('exit', async () => {
+  state.injected.dianaDB?.store();
+});

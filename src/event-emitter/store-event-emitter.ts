@@ -25,6 +25,9 @@ storeEventEmitter.on(STORE_EE_EVENT_NAME, async () => {
   if (!store.get('db')) {
     store.set('db', {});
   }
+  if (!store.get('migrations')) {
+    store.set('migrations', {});
+  }
   handlers.forEach((handler: () => any, database: string) => {
     store.set(`db.${database}`, handler());
   });

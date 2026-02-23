@@ -37,7 +37,7 @@ export class StringHolder extends BaseDataHolder<string> {
               data.value = Array.isArray(data.value[action])
                 ? oldValue.filter((el: string) => !data.value[action].includes(el))
                 : oldValue.filter((el: string) => data.value[action] !== el);
-            } else if (oldValue) {
+            } else if (oldValue || oldValue === '') {
               data.value = Array.isArray(data.value[action])
                 ? [oldValue].filter((el: string) => !data.value[action].includes(el))
                 : [oldValue].filter((el: string) => data.value[action] !== el);

@@ -76,7 +76,7 @@ export class RequestController {
         throw ErrorFactory.databaseError(`User "${user}" doesn't have access to the database "${database}"`);
       }
       const hasAccessToAction: boolean = this.checkClientActionAccess(user, database, action);
-      if (!hasAccessToAction) {
+      if (!hasAccessToAction && !this.nonRequiredDbActions.includes(action)) {
         throw ErrorFactory.databaseError(`Action "${action}" not allowed for user "${user}" in database "${database}"`);
       }
       if (action !== ClientActions.ADD_COLLECTION && !this.nonRequiredCollectionActions.includes(action)) {
@@ -106,12 +106,14 @@ export class RequestController {
           if (migration) {
             this.dianaDB.migrations[migration] = Date.now();
             response.data = { migration: { name: migration, status: MigrationStatus.UP } };
+            this.dianaDB.store();
           }
           break;
         case ClientActions.MIGRATE_DOWN:
           if (migration) {
             delete this.dianaDB.migrations[migration];
             response.data = { migration: { name: migration, status: MigrationStatus.DOWN } };
+            this.dianaDB.store();
           }
           break;
         case ClientActions.ADD_VIEW:

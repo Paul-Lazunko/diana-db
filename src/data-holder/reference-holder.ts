@@ -10,11 +10,14 @@ export class ReferenceHolder implements DataHolder {
   protected rawDataTime: Map<string, number>;
   protected referencesInverted: Map<string, string | string[]>;
 
-  constructor(database: Database) {
+  constructor(database: Database, reference?: string) {
     this.database = database;
     this.references = new Map<string, string | string[]>();
     this.rawDataTime = new Map<string, number>();
     this.referencesInverted = new Map<string, string | string[]>();
+    if (reference) {
+      this.reference = reference;
+    }
   }
 
   public distinct(): string[] {
@@ -107,8 +110,6 @@ export class ReferenceHolder implements DataHolder {
   }
 
   update(params: DataHolderMethodsParams<string>, data: DataHolderMethodsParams<string>) {
-
-
     this.remove(params);
     this.create(data);
   }

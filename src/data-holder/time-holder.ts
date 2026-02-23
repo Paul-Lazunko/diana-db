@@ -150,7 +150,7 @@ export class TimeHolder implements DataHolder {
         value = keys.next().value;
 
         const data = this[param].get(value);
-        if (data) {
+        if (Array.isArray(data)) {
           data.splice(data.indexOf(identifier), 1);
         }
 

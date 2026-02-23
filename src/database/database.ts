@@ -7,8 +7,9 @@ import { Field } from '@field';
 import { DatabaseOptions } from '@options';
 import { DataHolder } from '@data-holder';
 import { autoRollbackValidator, schemaItemValidator } from '@validator';
-import { addTTLHandler, removeTTLHandler, addStoreHandler, removeStoreHandler } from '@event-emitter';
+import { addTTLHandler, removeTTLHandler, addStoreHandler } from '@event-emitter';
 import { TransformQuery } from '@dto';
+import { config } from '@config';
 
 export class Database {
   protected static databases: Map<string, Database> = new Map<string, Database>();
@@ -100,7 +101,7 @@ export class Database {
               key,
               (schema[key] as ReferenceFieldDefinition).reference,
             );
-            this.Types.get((schema[key] as ArrayFieldDefinition).items).addCollectionTransactionKey(collection, key);
+            this.Types.get((schema[key] as ArrayFieldDefinition).items).addCollectionTransactionKey(collection, key, (schema[key] as ReferenceFieldDefinition).reference);
           } else {
             this.Types.get((schema[key] as ArrayFieldDefinition).items).addCollectionKey(collection, key);
             this.Types.get((schema[key] as ArrayFieldDefinition).items).addCollectionTransactionKey(collection, key);
@@ -112,7 +113,7 @@ export class Database {
             key,
             (schema[key] as ReferenceFieldDefinition).reference,
           );
-          this.Types.get(schema[key].type).addCollectionTransactionKey(collection, key);
+          this.Types.get(schema[key].type).addCollectionTransactionKey(collection, key, (schema[key] as ReferenceFieldDefinition).reference,);
           break;
         default:
           this.Types.get(schema[key].type).addCollectionKey(collection, key);
@@ -146,7 +147,7 @@ export class Database {
       for (const key in c.schema) {
         if (!schema[key] && key !== '_id') {
           c.schemaUpdated[key] = Date.now();
-          this.Types.get(c.schema[key].type).removeCollectionKey(collection);
+          this.Types.get(c.schema[key].type)?.removeCollectionKey(collection);
         }
       }
       for (const key in schema) {
@@ -272,7 +273,7 @@ export class Database {
     }
     const transactionId: string = v4();
     this.collections.forEach((collection: Collection<any>, name: string) => {
-      collection.startTransaction(transactionId, autoRollbackAfterMS);
+      collection.startTransaction(transactionId, autoRollbackAfterMS || config.autoRollbackAfterMS);
     });
     return transactionId;
   }
