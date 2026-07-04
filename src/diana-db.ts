@@ -18,20 +18,26 @@
    - Requires `pidof` (procps) on Linux.  Falls back to `/proc` scan if unavailable.
  */
 
-import { readdirSync, existsSync, readFileSync, copyFileSync, accessSync, constants, statSync } from 'fs';
+import {
+  readdirSync,
+  existsSync,
+  readFileSync,
+  copyFileSync,
+  accessSync,
+  constants,
+  statSync,
+  createReadStream,
+  createWriteStream,
+} from 'fs';
 import { resolve } from 'path';
 import { execSync, spawn } from 'child_process';
 import { Datanautics } from 'datanautics';
 import { config } from '@config';
 
 // const { version } = require('../../package.json');
-const version = '1.9.0';
+const version = '2.0.0';
 
-const userWriteStore: Datanautics = new Datanautics({
-  pathToDumpFile: `${config.dumpDirectory}/users`,
-  storingInterval: 1000,
-  writer: true,
-});
+const userWriteStore: Datanautics = new Datanautics({});
 
 const envMapping = {
   binary_path: 'BIN_PATH',
@@ -41,10 +47,20 @@ const envMapping = {
   dump_directory: 'DIANA_DB_DUMP_DIRECTORY',
   logs_ttl_value: 'DIANA_DB_LOG_TTL',
   current_dump_name: 'DIANA_DB_DUMP_CURRENT_NAME',
+  backup_name: 'DIANA_DB_BACKUP_NAME',
   transactions_min_auto_rollback_value: 'DIANA_DB_TRANSACTION_AUTOROLLBACK_MIN',
   transactions_max_auto_rollback_value: 'DIANA_DB_TRANSACTION_AUTOROLLBACK_MAX',
-  ssl_cert: 'DIANA_DB_SSL_CERT',
-  ssl_key: 'DIANA_DB_SSL_KEY',
+  store_strategy: 'DIANA_DB_STORE_STRATEGY',
+  store_s3_endpoint: 'DIANA_DB_STORE_S3_ENDPOINT',
+  store_s3_bucket: 'DIANA_DB_STORE_S3_BUCKET',
+  store_s3_region: 'DIANA_DB_STORE_S3_REGION',
+  store_s3_access_key_id: 'DIANA_DB_STORE_S3_ACCESS_KEY_ID',
+  store_s3_secret_access_key: 'DIANA_DB_STORE_S3_SECRET_ACCESS_KEY',
+  ssl_cert_file: 'DIANA_DB_SSL_CERT_FILE',
+  ssl_key_file: 'DIANA_DB_SSL_KEY_FILE',
+  ssl_ca_file: 'DIANA_DB_SSL_CA_FILE',
+  ssl_request_cert: 'DIANA_DB_SSL_REQUEST_CERT',
+  ssl_reject_unauthorized: 'DIANA_DB_SSL_REJECT_UNAUTHORISED',
 };
 
 const DEFAULT_CONF = '/etc/diana-db/diana-db.conf';
@@ -168,7 +184,10 @@ if (cIdxLong !== -1 && rest[cIdxLong + 1]) {
 
 async function main() {
   try {
-    await userWriteStore.init();
+    const readStream = createReadStream(`${config.dumpDirectory}/users`, { encoding: 'utf-8' });
+    const writeStream = createWriteStream(`${config.dumpDirectory}/users`, { encoding: 'utf-8' });
+
+    await userWriteStore.init(readStream);
     switch (command) {
       case 'start': {
         echoName();
@@ -338,7 +357,8 @@ async function main() {
         process.exit(1);
         break;
     }
-    await userWriteStore.store();
+    await userWriteStore.store(writeStream);
+    writeStream.end();
   } catch (e) {
     warn(e.message);
   }
