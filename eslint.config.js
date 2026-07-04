@@ -34,6 +34,7 @@ export default [
       '@typescript-eslint/no-var-requires': 'off',
       '@typescript-eslint/no-require-imports': 'off',
       '@typescript-eslint/no-wrapper-object-types': 'off',
+      '@typescript-eslint/no-unused-expressions': 'off',
       '@/quotes': [
         'error',
         'single',
@@ -45,6 +46,8 @@ export default [
       '@typescript-eslint/no-inferrable-types': 'off',
       'no-useless-escape': 'off',
       'no-array-constructor': 'error',
+      'no-case-declarations': 'off',
+      'no-constant-binary-expression': 'off',
       'no-empty': [
         'error',
         { allowEmptyCatch: false },
