@@ -4,15 +4,16 @@ import { existsSync, copyFile } from 'fs';
 import { config } from '@config';
 import { DUMP_EE_EVENT_NAME, StoreStrategy } from '@const';
 import { logger } from '@logger';
+import { getMillisecondsFromDumpInterval } from '@helper';
 
-const dataPath: string = resolve(__dirname, `${config.dumpDirectory}/${config.currentDumpName}`);
+const dataPath: string = resolve(`${config.dumpDirectory}/${config.currentDumpName}`);
+const dumpPath: string = resolve(`${config.dumpDirectory}/${config.backupName}`);
 
 const dumpEventEmitter: EventEmitter = new EventEmitter();
 
 dumpEventEmitter.on(DUMP_EE_EVENT_NAME, () => {
   if (config.storeStrategy === StoreStrategy.LOCAL) {
     if (existsSync(dataPath)) {
-      const dumpPath: string = resolve(`${config.dumpDirectory}/${config.backupDumpName}`);
       if (!existsSync(dumpPath)) {
         copyFile(dataPath, dumpPath, (error) => {
           if (error) {
@@ -24,7 +25,7 @@ dumpEventEmitter.on(DUMP_EE_EVENT_NAME, () => {
     if (config.dumpCreateInterval) {
       setTimeout(() => {
         dumpEventEmitter.emit(DUMP_EE_EVENT_NAME);
-      }, config.dumpCreateInterval);
+      }, getMillisecondsFromDumpInterval(config.dumpCreateInterval));
     }
   }
 });
