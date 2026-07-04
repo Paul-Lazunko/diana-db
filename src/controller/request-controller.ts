@@ -6,7 +6,7 @@ import { RequestControllerOptions } from '@options';
 import { RemoveResult, Request, Response, TransformQuery, UpdateResult } from '@dto';
 import { store } from '@store';
 import { logger } from '@logger';
-import { userReadStore } from '@user-store';
+import { userStore } from '@user-store';
 import { state } from '@state';
 
 export class RequestController {
@@ -14,6 +14,7 @@ export class RequestController {
   protected dianaDB: DianaDB;
 
   protected nonRequiredCollectionActions: string[] = [
+    ClientActions.GET_HEALTH,
     ClientActions.GET_DATABASE_NAMES,
     ClientActions.MIGRATE_DOWN,
     ClientActions.MIGRATE_UP,
@@ -32,13 +33,13 @@ export class RequestController {
     ClientActions.ADD_USER,
     ClientActions.REMOVE_USER,
     ClientActions.GET_DATABASE_NAMES,
+    ClientActions.GET_HEALTH,
   ];
 
   constructor(options: RequestControllerOptions) {
     const { databases, dianaDB } = options;
     this.dianaDB = dianaDB;
     this.databases = databases;
-    userReadStore.init();
   }
 
   public processRequest(request: Request): Response {
@@ -96,6 +97,9 @@ export class RequestController {
         }
       }
       switch (action) {
+        case ClientActions.GET_HEALTH:
+          response.data = state.injected.health;
+          break;
         case ClientActions.GET_DATABASE_NAMES:
           response.data = this.getDatabases(user);
           break;
@@ -129,7 +133,19 @@ export class RequestController {
           response.data = { createdCollection: collection };
           break;
         case ClientActions.UPDATE_COLLECTION:
-          db.updateCollection(collection, schema);
+          if (db.isCollectionSchemaLocked(collection)) {
+            response.error = `Schema of the collection'${collection}' is locked`;
+          } else {
+            db.updateCollection(collection, schema);
+            response.data = [{ updatedCollection: collection }];
+          }
+          break;
+        case ClientActions.LOCK_COLLECTION_SCHEMA:
+          db.lockCollectionSchema(collection);
+          response.data = [{ updatedCollection: collection }];
+          break;
+        case ClientActions.UNLOCK_COLLECTION_SCHEMA:
+          db.lockCollectionSchema(collection);
           response.data = [{ updatedCollection: collection }];
           break;
         case ClientActions.REMOVE_COLLECTION:
@@ -237,7 +253,7 @@ export class RequestController {
   }
 
   private checkDbAccess(user: string, db: string, databaseAccess: DatabaseAccess): boolean {
-    const currentAccess = userReadStore.get(`user.${user}.db.${db}`);
+    const currentAccess = userStore.get(`user.${user}.db.${db}`);
     if (!currentAccess) {
       return false;
     }
@@ -245,7 +261,7 @@ export class RequestController {
   }
 
   private checkClientActionAccess(user: string, db: string, action: ClientActions): boolean {
-    const currentAccess = userReadStore.get(`user.${user}.db.${db}`);
+    const currentAccess = userStore.get(`user.${user}.db.${db}`);
     const requiredAccess = clientAccess[action];
     if (!currentAccess || !requiredAccess) {
       return false;
