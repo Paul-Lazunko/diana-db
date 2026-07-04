@@ -122,35 +122,39 @@ export class RequestController {
           break;
         case ClientActions.ADD_VIEW:
           db.collections.get(collection).createView(view, transformQueries);
-          response.data = { createdView: view };
+          response.data = { view, action: 'created' };
           break;
         case ClientActions.REMOVE_VIEW:
           db.collections.get(collection).removeView(view);
-          response.data = { removedView: view };
+          response.data = { view, action: 'removed' };
           break;
         case ClientActions.ADD_COLLECTION:
           db.createCollection(collection, schema);
-          response.data = { createdCollection: collection };
+          response.data = { collection, action: 'created' };
           break;
         case ClientActions.UPDATE_COLLECTION:
           if (db.isCollectionSchemaLocked(collection)) {
             response.error = `Schema of the collection'${collection}' is locked`;
           } else {
             db.updateCollection(collection, schema);
-            response.data = [{ updatedCollection: collection }];
+            response.data = [{ collection, action: 'updated' }];
           }
           break;
         case ClientActions.LOCK_COLLECTION_SCHEMA:
           db.lockCollectionSchema(collection);
-          response.data = [{ updatedCollection: collection }];
+          response.data = [{ collection, locked: true }];
+          break;
+        case ClientActions.GET_COLLECTION_SCHEMA_LOCK:
+          const locked: boolean = db.getCollectionSchemaLock(collection);
+          response.data = [{ collection, locked }];
           break;
         case ClientActions.UNLOCK_COLLECTION_SCHEMA:
           db.lockCollectionSchema(collection);
-          response.data = [{ updatedCollection: collection }];
+          response.data = [{ collection: collection, locked: false }];
           break;
         case ClientActions.REMOVE_COLLECTION:
           db.removeCollection(collection);
-          response.data = [{ removedCollection: collection }];
+          response.data = [{ collection }];
           break;
         case ClientActions.GET_COLLECTION_NAMES:
           response.data = db.getCollectionNames();

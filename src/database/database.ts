@@ -148,6 +148,10 @@ export class Database {
     }
   }
 
+  public getCollectionSchemaLock(collection: string) {
+    return this.collections.get(collection)?.isSchemaLocked;
+  }
+
   public lockCollectionSchema(collection: string) {
     if (this.collections.has(collection)) {
       this.collections.get(collection).lockSchema();
