@@ -34,8 +34,14 @@ export type ObjectIdFieldDefinition = Omit<FieldDefinition, 'type' | 'items'> & 
   triggerRemove?: boolean;
 };
 
-export type ScalarFieldDefinition = Omit<FieldDefinition, 'type' | 'items'> & {
+export type BooleanFieldDefinition = Omit<FieldDefinition, 'type' | 'items'> & {
   type: Types.STRING | Types.BOOLEAN;
+};
+
+export type StringFieldDefinition = Omit<FieldDefinition, 'type' | 'items'> & {
+  type: Types.STRING | Types.BOOLEAN;
+  uppercase?: boolean;
+  lowercase?: boolean;
 };
 
 export type NumberFieldDefinition = Omit<FieldDefinition, 'type' | 'items'> & {
@@ -45,7 +51,8 @@ export type NumberFieldDefinition = Omit<FieldDefinition, 'type' | 'items'> & {
 
 export interface Schema<T extends Record<string, any>> {
   [key: string]:
-    | ScalarFieldDefinition
+    | BooleanFieldDefinition
+    | StringFieldDefinition
     | ReferenceFieldDefinition
     | ObjectIdFieldDefinition
     | ArrayFieldDefinition

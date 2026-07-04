@@ -1,4 +1,4 @@
-import { ClientActions, DatabaseAccess, ServerActions, Types } from '@const';
+import { ClientActions, ServerActions, Types } from '@const';
 import { ConstructItems, FindQuery, RemoveResult, Sorting, UpdateData, UpdateResult } from '@dto';
 import { DataHolder } from '@data-holder';
 import { Database } from '@database';
@@ -23,6 +23,7 @@ import {
   NumberFieldDefinition,
   ReferenceFieldDefinition,
   Schema,
+  StringFieldDefinition,
   TimeFieldDefinition,
 } from './schema';
 import { TransformQuery } from '@dto';
@@ -30,11 +31,12 @@ import { ErrorFactory } from '@error';
 import { triggerEventNamesExtractor } from '../helpers/trigger-event-names-extractor';
 
 export class Collection<T> {
+  public db: Database;
   public name: string;
   public viewTriggerEventName: string;
   public schema: Schema<T>;
+  public isSchemaLocked: boolean;
   public schemaUpdated: Record<string, number>;
-  public db: Database;
   public identifiers: Set<string>;
   protected validate: Validator;
 
@@ -75,6 +77,14 @@ export class Collection<T> {
     for (const view in views) {
       this.createView(view, views[view].transformQueries);
     }
+  }
+
+  public lockSchema() {
+    this.isSchemaLocked = true;
+  }
+
+  public unlockSchema() {
+    this.isSchemaLocked = false;
   }
 
   public createView(name: string, transformQueries: TransformQuery[]) {
@@ -287,6 +297,12 @@ export class Collection<T> {
       }
       if (!update && this.schema[key].required && !Object.prototype.hasOwnProperty.apply(data, [key])) {
         throw ErrorFactory.collectionError(`property '${key}' is required in the '${this.name}' collection's Schema`);
+      }
+      if ((this.schema[key] as StringFieldDefinition).uppercase && data[key]) {
+        data[key] = data[key].toString().toUpperCase();
+      }
+      if ((this.schema[key] as StringFieldDefinition).lowercase && data[key]) {
+        data[key] = data[key].toString().toLowerCase();
       }
     }
   }
