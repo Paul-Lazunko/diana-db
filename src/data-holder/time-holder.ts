@@ -18,7 +18,6 @@ export class TimeHolder implements DataHolder {
   private dayOfYear: Map<number, string[]>;
   private timestamp: Map<number, string[]>;
   private raw: Map<string, string[]>;
-  private rawDataTime: Map<string, number>;
   private identifiers: Set<string>;
   private readonly queryProcessorConstructor: any;
   private queryProcessor: TimeQueryProcessor;
@@ -51,7 +50,6 @@ export class TimeHolder implements DataHolder {
     this.dayOfYear = new Map<number, string[]>();
     this.timestamp = new Map<number, string[]>();
     this.raw = new Map<string, string[]>();
-    this.rawDataTime = new Map<string, number>();
     this.identifiers = new Set<string>();
     this.identifiersMap = new Map<string, Map<string, number | string>>();
     this.initQueryProcessor();
@@ -78,7 +76,6 @@ export class TimeHolder implements DataHolder {
 
   public create(params: DataHolderMethodsParams<string>) {
     const { value, identifier } = params;
-    this.rawDataTime.set(identifier, Date.now());
     this.identifiers.add(identifier);
     if (Array.isArray(value)) {
       for (const v of value) {
@@ -104,7 +101,6 @@ export class TimeHolder implements DataHolder {
     const dayOfYear: number = getDayOfYear(processedValue);
     const timestamp: number = processedValue.getTime();
     const raw: string = new Date(dateString).toISOString();
-    const rawDataTime: number = Date.now();
     return {
       year,
       month,
@@ -117,7 +113,6 @@ export class TimeHolder implements DataHolder {
       dayOfYear,
       timestamp,
       raw,
-      rawDataTime,
     };
   }
 
@@ -142,7 +137,6 @@ export class TimeHolder implements DataHolder {
   remove(params: DataHolderMethodsParams<string>) {
     const { identifier, value } = params;
     this.identifiers.delete(identifier);
-    this.rawDataTime.delete(identifier);
     TIME_PARAMS.forEach((param: string) => {
       const keys = this[param].keys();
       let value: any = true;
@@ -220,7 +214,6 @@ export class TimeHolder implements DataHolder {
       dayOfYear: {},
       timestamp: {},
       raw: {},
-      rawDataTime: {},
     };
     for (const key in result) {
       if (this[key] instanceof Map) {
@@ -255,7 +248,6 @@ export class TimeHolder implements DataHolder {
       raw,
       identifiers,
       identifiersMap,
-      rawDataTime,
     } = data;
     if (identifiers) {
       this.identifiers = new Set(Array.from(identifiers)) || this.identifiers;
@@ -272,13 +264,10 @@ export class TimeHolder implements DataHolder {
       { dayOfYear },
       { timestamp },
       { raw },
-      { rawDataTime },
     ].forEach((item: { [key: string]: any }) => {
       const key = Object.keys(item)[0];
       for (const k in data[key]) {
         if (key === 'raw') {
-          this[key].set(k, data[key][k]);
-        } else if (key === 'rawDataTime') {
           this[key].set(k, data[key][k]);
         } else {
           this[key].set(parseInt(k, 10), data[key][k]);

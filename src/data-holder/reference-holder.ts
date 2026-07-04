@@ -7,13 +7,11 @@ export class ReferenceHolder implements DataHolder {
   protected database: Database;
   protected reference: string;
   protected references: Map<string, string | string[]>;
-  protected rawDataTime: Map<string, number>;
   protected referencesInverted: Map<string, string | string[]>;
 
   constructor(database: Database, reference?: string) {
     this.database = database;
     this.references = new Map<string, string | string[]>();
-    this.rawDataTime = new Map<string, number>();
     this.referencesInverted = new Map<string, string | string[]>();
     if (reference) {
       this.reference = reference;
@@ -55,7 +53,6 @@ export class ReferenceHolder implements DataHolder {
 
   create(params: DataHolderMethodsParams<any>) {
     const { identifier, value } = params;
-    this.rawDataTime.set(identifier, Date.now());
     if (this.references.has(identifier)) {
       const c: any = this.references.get(identifier);
       if (Array.isArray(c)) {
@@ -89,7 +86,6 @@ export class ReferenceHolder implements DataHolder {
   remove(params: DataHolderMethodsParams<any>) {
     const { identifier, value } = params;
     this.references.delete(identifier);
-    this.rawDataTime.delete(identifier);
     if (Array.isArray(value)) {
       for (let i = 0; i < value.length; i = i + 1) {
         const ref: any = this.referencesInverted.get(value[i]);

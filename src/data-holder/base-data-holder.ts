@@ -9,7 +9,6 @@ export class BaseDataHolder<T> implements DataHolder {
   protected isBooleanHolder: boolean = false;
   protected database: Database;
   protected rawDataValues: Map<string, T | T[]>;
-  protected rawDataTime: Map<string, number>;
   protected rawDataKeys: Map<T, string[]>;
   protected identifiers: Set<string>;
   protected readonly queryProcessorConstructor: any;
@@ -26,12 +25,10 @@ export class BaseDataHolder<T> implements DataHolder {
   public init() {
     this.rawDataKeys = new Map<T, string[]>();
     this.rawDataValues = new Map<string, T | T[]>();
-    this.rawDataTime = new Map<string, number>();
     this.identifiers = new Set<string>();
     this.queryProcessor = new this.queryProcessorConstructor({
       rawDataValues: this.rawDataValues,
       rawDataKeys: this.rawDataKeys,
-      rawDataTime: this.rawDataTime,
     });
   }
 
@@ -42,7 +39,6 @@ export class BaseDataHolder<T> implements DataHolder {
   public create(params: DataHolderMethodsParams<T>, fieldDefinition?: NumberFieldDefinition) {
     const { identifier, value } = params;
     this.identifiers.add(identifier);
-    this.rawDataTime.set(identifier, Date.now());
     if (this.rawDataValues.has(identifier)) {
       const oldValue: T | T[] = this.rawDataValues.get(identifier);
       if (Array.isArray(oldValue)) {
@@ -88,7 +84,6 @@ export class BaseDataHolder<T> implements DataHolder {
   public remove(params: DataHolderMethodsParams<T>) {
     const { identifier, value } = params;
     this.identifiers.delete(identifier);
-    this.rawDataTime.delete(identifier);
     this.rawDataValues.delete(identifier);
     for (const key of this.rawDataKeys.keys()) {
       const item = this.rawDataKeys.get(key);
@@ -138,14 +133,10 @@ export class BaseDataHolder<T> implements DataHolder {
     const result: any = {
       rawDataKeys: {},
       rawDataValues: {},
-      rawDataTime: {},
       identifiers: this.identifiers,
     };
     this.rawDataValues.forEach((value: T, key: string) => {
       result.rawDataValues[key.toString()] = value;
-    });
-    this.rawDataTime.forEach((value: number, key: string) => {
-      result.rawDataTime[key.toString()] = value;
     });
     this.rawDataKeys.forEach((value: any, key: T) => {
       result.rawDataKeys[key.toString()] = value;
@@ -154,7 +145,7 @@ export class BaseDataHolder<T> implements DataHolder {
   }
 
   public restore(data: BaseDataHolderStorePart): void {
-    const { rawDataKeys, rawDataValues, identifiers, rawDataTime } = data;
+    const { rawDataKeys, rawDataValues, identifiers } = data;
     if (identifiers) {
       this.identifiers = new Set(Array.from(identifiers)) || this.identifiers;
     }
@@ -175,9 +166,6 @@ export class BaseDataHolder<T> implements DataHolder {
         k = parseInt(key.toString(), 10);
       }
       this.rawDataValues.set(key, rawDataValues[key]);
-    }
-    for (const key in rawDataTime) {
-      this.rawDataTime.set(key, rawDataTime[key]);
     }
   }
 }

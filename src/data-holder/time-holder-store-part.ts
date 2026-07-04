@@ -10,7 +10,6 @@ export interface TimeHolderStorePart {
   dayOfYear: any;
   timestamp: any;
   raw: any;
-  rawDataTime: any;
   identifiersMap: any;
   identifiers: Set<string>;
 }

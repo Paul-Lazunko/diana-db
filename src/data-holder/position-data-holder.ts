@@ -7,7 +7,6 @@ export class PositionDataHolder implements DataHolder {
   protected queryProcessorConstructor: PositionQueryProcessor;
   protected queryProcessor: PositionQueryProcessor;
   protected data: Map<string, Point>;
-  protected rawDataTime: Map<string, number>;
   protected identifiers: Set<string>;
 
   constructor(queryProcessor: PositionQueryProcessor) {
@@ -26,7 +25,6 @@ export class PositionDataHolder implements DataHolder {
   protected init() {
     this.data = new Map<string, Point>();
     this.identifiers = new Set<string>();
-    this.rawDataTime = new Map();
     this.queryProcessor = new PositionQueryProcessor({ data: this.data });
   }
 
@@ -41,7 +39,6 @@ export class PositionDataHolder implements DataHolder {
 
   protected set(params: DataHolderMethodsParams<Point>) {
     const { identifier, value } = params;
-    this.rawDataTime.set(identifier, Date.now());
     this.identifiers.add(identifier);
     this.data.set(identifier, value);
   }
