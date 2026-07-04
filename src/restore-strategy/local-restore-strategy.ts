@@ -1,6 +1,6 @@
 import { Datanautics } from 'datanautics';
 import { AbstractRestoreStrategy } from './abstract-restore-strategy';
-import { createReadStream, createWriteStream } from 'fs';
+import { createReadStream } from 'fs';
 import { config } from '@config';
 
 export class LocalRestoreStrategy extends AbstractRestoreStrategy {
