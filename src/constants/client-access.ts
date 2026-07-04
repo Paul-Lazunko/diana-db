@@ -15,7 +15,8 @@ export const clientAccess: Record<ClientActions, DatabaseAccess> = {
   [ClientActions.FIND]: DatabaseAccess.READ,
   [ClientActions.GET_COLLECTION_NAMES]: DatabaseAccess.READ, //
   [ClientActions.GET_COLLECTION_SCHEMA]: DatabaseAccess.READ,
-  [ClientActions.GET_DATABASE_NAMES]: DatabaseAccess.READ, // cli-only action
+  [ClientActions.GET_DATABASE_NAMES]: DatabaseAccess.READ,
+  [ClientActions.GET_HEALTH]: DatabaseAccess.READ,
   [ClientActions.GET_MIGRATIONS]: DatabaseAccess.WRITE,
   [ClientActions.GRANT_ACCESS]: DatabaseAccess.RESTRICTED,
   [ClientActions.INSERT]: DatabaseAccess.WRITE,
@@ -23,11 +24,13 @@ export const clientAccess: Record<ClientActions, DatabaseAccess> = {
   [ClientActions.MIGRATE_DOWN]: DatabaseAccess.WRITE,
   [ClientActions.MIGRATE_UP]: DatabaseAccess.WRITE,
   [ClientActions.MIN]: DatabaseAccess.READ,
-  [ClientActions.REMOVE]: DatabaseAccess.WRITE, // cli-only action
+  [ClientActions.REMOVE]: DatabaseAccess.WRITE,
   [ClientActions.REMOVE_COLLECTION]: DatabaseAccess.MODIFY,
   [ClientActions.REMOVE_USER]: DatabaseAccess.RESTRICTED,
   [ClientActions.ROLLBACK_TRANSACTION]: DatabaseAccess.WRITE,
   [ClientActions.START_TRANSACTION]: DatabaseAccess.WRITE,
   [ClientActions.UPDATE]: DatabaseAccess.WRITE,
-  [ClientActions.UPDATE_COLLECTION]: DatabaseAccess.WRITE,
+  [ClientActions.UPDATE_COLLECTION]: DatabaseAccess.MODIFY,
+  [ClientActions.LOCK_COLLECTION_SCHEMA]: DatabaseAccess.MODIFY,
+  [ClientActions.UNLOCK_COLLECTION_SCHEMA]: DatabaseAccess.MODIFY,
 };

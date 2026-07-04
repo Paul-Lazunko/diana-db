@@ -19,3 +19,5 @@ export * from './pointer-prefix';
 
 export * from './database-access';
 export * from './client-access';
+
+export * from './store-strategy';
