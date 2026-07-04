@@ -130,6 +130,6 @@ export function getMillisecondsFromDumpInterval(interval: DumpInterval = DumpInt
     case DumpInterval.HOUR:
       return 3600000;
     case DumpInterval.DAY:
-      return 86400000
+      return 86400000;
   }
 }

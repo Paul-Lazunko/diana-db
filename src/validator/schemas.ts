@@ -9,9 +9,7 @@ const configurationOptions = joi.object({
   dumpCreateInterval: joi.string().valid('day', 'hour'),
   dumpDirectory: joi.string().regex(/^(^[\/]{1})|(^[\.]{1,2})\//),
   logsDirectory: joi.string().regex(/^(^[\/]{1})|(^[\.]{1,2})\//),
-  logsTtlValue: joi
-    .string()
-    .regex(/^\d+d$/),
+  logsTtlValue: joi.string().regex(/^\d+d$/),
   currentDumpName: joi.string(),
   backupName: joi.string(),
   storeStrategy: joi.string().valid('s3', 'local'),
@@ -21,8 +19,8 @@ const configurationOptions = joi.object({
     endpoint: joi.string(),
     credentials: joi.object({
       accessKeyId: joi.string(),
-      secretAccessKey: joi.string()
-    })
+      secretAccessKey: joi.string(),
+    }),
   }),
   tls: joi.object({
     cert: joi.string(),

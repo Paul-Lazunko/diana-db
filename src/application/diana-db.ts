@@ -1,12 +1,7 @@
 import { createReadStream, existsSync, readFileSync, watchFile } from 'fs';
 import { randomUUID } from 'crypto';
 import { config } from '@config';
-import {
-  ServerActions,
-  StoreStrategy,
-  DEFAULT_DIANA_DB_USER_FILE_NAME,
-  STORE_EE_EVENT_NAME,
-} from '@const';
+import { ServerActions, StoreStrategy, DEFAULT_DIANA_DB_USER_FILE_NAME, STORE_EE_EVENT_NAME } from '@const';
 import { Request, User } from '@dto';
 import { logger } from '@logger';
 import { store } from '@store';
