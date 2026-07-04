@@ -124,3 +124,12 @@ export function getDateString(interval: DumpInterval = DumpInterval.DAY) {
   }
   return new Date().toISOString().slice(0, 10);
 }
+
+export function getMillisecondsFromDumpInterval(interval: DumpInterval = DumpInterval.DAY) {
+  switch (interval) {
+    case DumpInterval.HOUR:
+      return 3600000;
+    case DumpInterval.DAY:
+      return 86400000
+  }
+}
