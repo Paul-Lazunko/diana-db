@@ -99,12 +99,12 @@ export class Database {
             this.Types.get((schema[key] as ArrayFieldDefinition).items).addCollectionKey(
               collection,
               key,
-              (schema[key] as ReferenceFieldDefinition).reference,
+              (schema[key] as unknown as ReferenceFieldDefinition).reference,
             );
             this.Types.get((schema[key] as ArrayFieldDefinition).items).addCollectionTransactionKey(
               collection,
               key,
-              (schema[key] as ReferenceFieldDefinition).reference,
+              (schema[key] as unknown as ReferenceFieldDefinition).reference,
             );
           } else {
             this.Types.get((schema[key] as ArrayFieldDefinition).items).addCollectionKey(collection, key);
@@ -188,7 +188,7 @@ export class Database {
                 this.Types.get((schema[key] as ArrayFieldDefinition).items).addCollectionKey(
                   collection,
                   key,
-                  (schema[key] as ReferenceFieldDefinition).reference,
+                  (schema[key] as unknown as ReferenceFieldDefinition).reference,
                 );
               } else {
                 this.Types.get((schema[key] as ArrayFieldDefinition).items).addCollectionKey(collection, key);
