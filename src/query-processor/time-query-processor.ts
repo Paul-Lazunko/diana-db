@@ -23,26 +23,22 @@ export class TimeQueryProcessor {
       };
 
   private readonly rawDataKeys: TimeQueryProcessorOptionsKeys;
-
   private readonly rawDataValues: TimeQueryProcessorOptionsValues;
-  private readonly rawDataTime: TimeQueryProcessorOptionsValues;
 
   constructor(rawDataKeys: TimeQueryProcessorOptionsKeys, rawDataValues: Map<string, any>) {
     this.rawDataKeys = rawDataKeys;
     this.rawDataValues = Object.fromEntries(rawDataValues.entries()) as TimeQueryProcessorOptionsValues;
     this.queryProcessors = {};
     TIME_PARAMS.forEach((param: string) => {
-      if (param === 'raw' || param === 'rawDataTime') {
+      if (param === 'raw') {
         this.queryProcessors[`$${param}`] = new StringQueryProcessor({
           rawDataKeys: this.rawDataKeys[param],
           rawDataValues: this.rawDataValues[param],
-          rawDataTime: this.rawDataTime,
         });
       } else {
         this.queryProcessors[`$${param}`] = new NumberQueryProcessor({
           rawDataKeys: this.rawDataKeys[param],
           rawDataValues: this.rawDataValues[param],
-          rawDataTime: this.rawDataKeys.rawDataTime,
         });
       }
     });
