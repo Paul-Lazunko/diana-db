@@ -30,4 +30,8 @@ export class ErrorFactory {
   public static restoreError(message: string) {
     return ErrorFactory.construct(`001 Restore Error: ${message}`);
   }
+
+  public static storeError(message: string) {
+    return ErrorFactory.construct(`002 Store Error: ${message}`);
+  }
 }
