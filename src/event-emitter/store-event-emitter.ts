@@ -1,8 +1,9 @@
 import { EventEmitter } from 'events';
 import { STORE_EE_EVENT_NAME, STORE_EE_EVENT_TIMER } from '@const';
 import { store } from '@store';
-import { writeFileSync } from 'fs';
+import { createWriteStream } from 'fs';
 import { config } from '@config';
+import { AbstractRestoreStrategy, storeStrategies } from '@store-strategy';
 
 const handlers: Map<string, any> = new Map<string, any>();
 const rootHandlers: Map<string, any> = new Map<string, any>();
@@ -34,7 +35,14 @@ storeEventEmitter.on(STORE_EE_EVENT_NAME, async () => {
   rootHandlers.forEach((handler: () => any, prop: string) => {
     store.set(prop, handler());
   });
-  await store.store();
+  switch (config.storeStrategy) {
+    case 's3':
+      await storeStrategies.s3.store(store);
+      break;
+    case 'local':
+      await storeStrategies.local.store(store);
+      break;
+  }
   setTimeout(() => {
     storeEventEmitter.emit(STORE_EE_EVENT_NAME);
   }, STORE_EE_EVENT_TIMER);
