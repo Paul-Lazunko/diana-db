@@ -1,7 +1,12 @@
 import { createReadStream, existsSync, readFileSync, watchFile } from 'fs';
 import { randomUUID } from 'crypto';
 import { config } from '@config';
-import { ServerActions, STORE_EE_EVENT_NAME, StoreStrategy, userFilePath } from '@const';
+import {
+  ServerActions,
+  StoreStrategy,
+  DEFAULT_DIANA_DB_USER_FILE_NAME,
+  STORE_EE_EVENT_NAME,
+} from '@const';
 import { Request, User } from '@dto';
 import { logger } from '@logger';
 import { store } from '@store';
@@ -99,6 +104,7 @@ export class DianaDB {
   }
 
   protected async getUserFileContent() {
+    const userFilePath = `${config.dumpDirectory}/${DEFAULT_DIANA_DB_USER_FILE_NAME}`;
     const readStreamUsers = createReadStream(userFilePath, { encoding: 'utf8' });
     await userStore.init(readStreamUsers);
     readStreamUsers.destroy();
@@ -113,7 +119,8 @@ export class DianaDB {
         await restoreStrategies.s3.restore(store);
         break;
     }
-
+    await this.getUserFileContent();
+    const userFilePath = `${config.dumpDirectory}/${DEFAULT_DIANA_DB_USER_FILE_NAME}`;
     watchFile(userFilePath, async () => {
       try {
         await this.getUserFileContent();
