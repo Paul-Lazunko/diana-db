@@ -1,25 +1,34 @@
-import { createServer, Server, Socket } from 'net';
+import { randomUUID } from 'crypto';
+import net from 'net';
+import tls from 'tls';
 import { CryptoHelper } from '@helper';
 import { ServerOptions } from '@options';
 import { Request, Response } from '@dto';
-import { v4 } from 'uuid';
-import { userReadStore } from '@user-store';
+import { userStore } from '@user-store';
 import { logger } from '@logger';
 
 export class DianaDbServer {
-  private server: Server;
+  private server: net.Server;
   private readonly port: number;
-  private sockets: Map<string, { id: string; socket: Socket; user: string; requestGroupId: string }>;
+  private sockets: Map<
+    string,
+    { id: string; socket: net.Socket | tls.TLSSocket; user: string; requestGroupId: string }
+  >;
   public subscribers: Set<string>;
   private readonly handler: (request: Request) => void;
 
   constructor(options: ServerOptions) {
     const { port, handler, ssl } = options;
-    this.sockets = new Map<string, { id: string; socket: Socket; user: string; requestGroupId: string }>();
+    this.sockets = new Map<
+      string,
+      { id: string; socket: net.Socket | tls.TLSSocket; user: string; requestGroupId: string }
+    >();
     this.subscribers = new Set<string>();
     this.port = port;
     this.handler = handler;
-    this.server = createServer(this.onConnection.bind(this));
+    const secure: boolean = ssl?.key && ssl?.cert;
+    const handler = this.onConnection.bind(this);
+    this.server = secure ? tls.createServer(ssl, handler) : net.createServer(handler);
     this.server.on('error', (e) => console.error);
   }
 
@@ -37,7 +46,7 @@ export class DianaDbServer {
   }
 
   onConnection(socket: Socket) {
-    const id: string = v4();
+    const id: string = randomUUID();
     let savedPreviousStringData = '';
     let isPasswordCorrect: boolean = false;
     this.sockets.set(id, { id, socket, user: '', requestGroupId: '' });
@@ -59,10 +68,10 @@ export class DianaDbServer {
           user,
           mode,
         ] = userPart.match(/^user:(\w+)(\:\w+)?/);
-        if (!userReadStore.get(`user.${user}`)) {
+        if (!userStore.get(`user.${user}`)) {
           return socket.end();
         }
-        password = userReadStore.get(`user.${user}`)?.password;
+        password = userStore.get(`user.${user}`)?.password;
         if (!password) {
           return socket.end();
         }
@@ -75,10 +84,10 @@ export class DianaDbServer {
         logger.info(`Connected user "${user}" ${isSubscriber ? ' (subscriber) ' : ''}from IP ${addressInfo.address}`);
       } else if (this.sockets.get(id).user) {
         user = this.sockets.get(id).user;
-        if (!userReadStore.get(`user.${user}`)) {
+        if (!userStore.get(`user.${user}`)) {
           return socket.end();
         }
-        password = userReadStore.get(`user.${user}`)?.password;
+        password = userStore.get(`user.${user}`)?.password;
       }
       if (!password) {
         return socket.end();
@@ -136,7 +145,7 @@ export class DianaDbServer {
     const { socket } = response;
     const _socket: { socket: Socket; user: string } = this.sockets.get(socket);
     if (_socket) {
-      const password = userReadStore.get(`user.${_socket.user}.password`);
+      const password = userStore.get(`user.${_socket.user}.password`);
       try {
         const _response: string = CryptoHelper.encrypt(password, JSON.stringify(response));
         _socket.socket.write(_response + '\n');

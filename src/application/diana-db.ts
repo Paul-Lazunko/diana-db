@@ -1,20 +1,21 @@
-import { existsSync, readFileSync, writeFileSync } from 'fs';
-import { v4 } from 'uuid';
+import { createReadStream, existsSync, readFileSync, watchFile } from 'fs';
+import { randomUUID } from 'crypto';
 import { config } from '@config';
-import { DUMP_EE_EVENT_NAME, ServerActions, STORE_EE_EVENT_NAME } from '@const';
+import { ServerActions, STORE_EE_EVENT_NAME, StoreStrategy, userFilePath } from '@const';
 import { Request, User } from '@dto';
 import { logger } from '@logger';
 import { store } from '@store';
 import { state } from '@state';
-import { addRootHandler, dumpEventEmitter, publishEventEmitter, storeEventEmitter } from '@event-emitter';
+import { addRootHandler, publishEventEmitter, storeEventEmitter } from '@event-emitter';
 import { DianaDbServer } from '@server';
 import { Database } from '@database';
 import { RequestController } from '@controller';
 import { ErrorFactory } from '@error';
 import { configurationValidator } from '@validator';
 import { DatabaseUpdate } from '@parameters';
-import { userReadStore } from '@user-store';
+import { userStore } from '@user-store';
 import { monitorEventEmitter } from '../event-emitter/monitor-event-emitter';
+import { restoreStrategies } from '@restore-strategy';
 
 const signals = [
   'SIGINT',
@@ -34,11 +35,14 @@ export class DianaDB {
     this.databases = new Map<string, Database>();
     this.migrations = store.get('migrations') || {};
     const ssl: any = {};
-    if (config.cert && existsSync(config.cert)) {
-      ssl.cert = readFileSync(config.cert);
+    if (config.tls.cert && existsSync(config.tls.cert)) {
+      ssl.cert = readFileSync(config.tls.cert);
     }
-    if (config.key && existsSync(config.key)) {
-      ssl.key = readFileSync(config.key);
+    if (config.tls.key && existsSync(config.tls.key)) {
+      ssl.key = readFileSync(config.tls.key);
+    }
+    if (config.tls.ca && existsSync(config.tls.ca)) {
+      ssl.key = readFileSync(config.tls.ca);
     }
     this.server = new DianaDbServer({
       port: config.port,
@@ -94,13 +98,34 @@ export class DianaDB {
     });
   }
 
+  protected async getUserFileContent() {
+    const readStreamUsers = createReadStream(userFilePath, { encoding: 'utf8' });
+    await userStore.init(readStreamUsers);
+    readStreamUsers.destroy();
+  }
+
   protected async restore() {
-    await store.init();
-    await userReadStore.init();
+    switch (config.storeStrategy) {
+      case StoreStrategy.LOCAL:
+        await restoreStrategies.local.restore(store);
+        break;
+      case StoreStrategy.S3:
+        await restoreStrategies.s3.restore(store);
+        break;
+    }
+
+    watchFile(userFilePath, async () => {
+      try {
+        await this.getUserFileContent();
+      } catch (e) {
+        logger.error(ErrorFactory.restoreError(e.message));
+      }
+    });
+
     const databases: any = store.get('db');
     const migrations = store.get('migrations');
     if (migrations && typeof migrations === 'object') {
-      this.migrations = migrations
+      this.migrations = migrations;
     }
     if (databases) {
       for (const database in databases) {
@@ -113,7 +138,7 @@ export class DianaDB {
   }
 
   onPublish(databaseUpdate: DatabaseUpdate) {
-    const requestId = v4();
+    const requestId = randomUUID();
     const sockets: string[] = Array.from(this.server.subscribers);
     const subscribersCount = sockets.length;
     for (let i = 0; i < subscribersCount; i = i + 1) {
