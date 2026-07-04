@@ -10,7 +10,6 @@ export type TimeQueryProcessorOptionsKeys = {
   dayOfYear: Map<number, string[]>;
   timestamp: Map<number, string[]>;
   raw: Map<string, string[]>;
-  rawDataTime: Map<string, number>;
 };
 
 export type TimeQueryProcessorOptionsValues = {
@@ -25,5 +24,4 @@ export type TimeQueryProcessorOptionsValues = {
   dayOfYear: Map<string, number>;
   timestamp: Map<string, number>;
   raw: Map<string, string>;
-  rawDataTime: Map<string, number>;
 };

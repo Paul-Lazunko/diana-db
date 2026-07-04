@@ -13,4 +13,7 @@ export interface ClientOptions {
   logger?: Logger;
   cert?: string;
   key?: string;
+  ca?: string;
+  requestCert?: boolean;
+  rejectUnauthorized?: boolean;
 }
