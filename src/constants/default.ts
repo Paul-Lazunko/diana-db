@@ -1,5 +1,6 @@
 import { resolve } from 'path';
 import { DumpInterval } from './dump-interval';
+import { config } from '@config';
 
 export const DEFAULT_DIANA_DB_PORT: number = 34567;
 export const DEFAULT_DIANA_DB_WORKERS_COUNT: number = 10;
@@ -7,4 +8,10 @@ export const DEFAULT_DIANA_DB_DUMP_CREATE_INTERVAL: DumpInterval = DumpInterval.
 export const DEFAULT_DIANA_DB_DUMP_DIRECTORY: string = '/var/lib/diana-db';
 export const DEFAULT_DIANA_DB_LOG_DIRECTORY: string = '/var/log/diana-db';
 export const DEFAULT_DIANA_DB_DUMP_CURRENT_NAME: string = 'current.didb';
+export const DEFAULT_DIANA_DB_BACKUP_NAME: string = 'backup.didb';
+
+export const DEFAULT_DIANA_DB_USER_FILE_NAME: string = 'users';
+
+export const userFilePath = `${config.dumpDirectory}/${DEFAULT_DIANA_DB_USER_FILE_NAME}`;
+
 export const DEFAULT_DIANA_DB_LOG_TTL: string = '7d';
