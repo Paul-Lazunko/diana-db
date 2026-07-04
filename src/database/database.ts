@@ -1,4 +1,4 @@
-import { v4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { DianaDB } from '@application';
 import { Collection, ArrayFieldDefinition, ReferenceFieldDefinition, Schema } from '@collection';
 import { Types } from '@const';
@@ -101,7 +101,11 @@ export class Database {
               key,
               (schema[key] as ReferenceFieldDefinition).reference,
             );
-            this.Types.get((schema[key] as ArrayFieldDefinition).items).addCollectionTransactionKey(collection, key, (schema[key] as ReferenceFieldDefinition).reference);
+            this.Types.get((schema[key] as ArrayFieldDefinition).items).addCollectionTransactionKey(
+              collection,
+              key,
+              (schema[key] as ReferenceFieldDefinition).reference,
+            );
           } else {
             this.Types.get((schema[key] as ArrayFieldDefinition).items).addCollectionKey(collection, key);
             this.Types.get((schema[key] as ArrayFieldDefinition).items).addCollectionTransactionKey(collection, key);
@@ -113,7 +117,11 @@ export class Database {
             key,
             (schema[key] as ReferenceFieldDefinition).reference,
           );
-          this.Types.get(schema[key].type).addCollectionTransactionKey(collection, key, (schema[key] as ReferenceFieldDefinition).reference,);
+          this.Types.get(schema[key].type).addCollectionTransactionKey(
+            collection,
+            key,
+            (schema[key] as ReferenceFieldDefinition).reference,
+          );
           break;
         default:
           this.Types.get(schema[key].type).addCollectionKey(collection, key);
@@ -137,6 +145,24 @@ export class Database {
       if (this.names.has(collection)) {
         this.names.delete(collection);
       }
+    }
+  }
+
+  public lockCollectionSchema(collection: string) {
+    if (this.collections.has(collection)) {
+      this.collections.get(collection).lockSchema();
+    }
+  }
+
+  public unlockCollectionSchema(collection: string) {
+    if (this.collections.has(collection)) {
+      this.collections.get(collection).unlockSchema();
+    }
+  }
+
+  public isCollectionSchemaLocked(collection: string) {
+    if (this.collections.has(collection)) {
+      return this.collections.get(collection).isSchemaLocked;
     }
   }
 
@@ -271,7 +297,7 @@ export class Database {
     if (validationResult && validationResult.error) {
       throw ErrorFactory.databaseError(validationResult.error.message);
     }
-    const transactionId: string = v4();
+    const transactionId: string = randomUUID();
     this.collections.forEach((collection: Collection<any>, name: string) => {
       collection.startTransaction(transactionId, autoRollbackAfterMS || config.autoRollbackAfterMS);
     });
