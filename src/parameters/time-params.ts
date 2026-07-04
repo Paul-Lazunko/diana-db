@@ -10,5 +10,4 @@ export interface TimeParams {
   dayOfYear?: number;
   timestamp?: number;
   raw?: string;
-  rawDataTime?: number;
 }
