@@ -220,6 +220,24 @@ const schemaItem = joi
         not: Types.ARRAY,
         then: joi.forbidden(),
       }),
+    uppercase: joi
+      .when('type', {
+        is: Types.STRING,
+        then: joi.boolean(),
+      })
+      .when('type', {
+        not: Types.STRING,
+        then: joi.forbidden(),
+      }),
+    lowercase: joi
+      .when('type', {
+        is: Types.STRING,
+        then: joi.boolean(),
+      })
+      .when('type', {
+        not: Types.STRING,
+        then: joi.forbidden(),
+      }),
     precision: joi
       .when('type', {
         is: Types.NUMBER,
@@ -260,6 +278,7 @@ const schemaItem = joi
         then: joi.forbidden(),
       }),
   })
+  .oxor('lowercase', 'uppercase')
   .min(1);
 
 const projectionSchema = joi
