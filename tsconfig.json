@@ -36,6 +36,8 @@
       "@server": ["src/server"],
       "@state": ["src/state"],
       "@store": ["src/store"],
+      "@store-strategy": ["src/store-strategy"],
+      "@restore-strategy": ["src/restore-strategy"],
       "@user-store": ["src/user-store"],
       "@validator": ["src/validator"]
     }
