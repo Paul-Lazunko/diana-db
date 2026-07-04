@@ -11,9 +11,26 @@ const configurationOptions = joi.object({
   logsDirectory: joi.string().regex(/^(^[\/]{1})|(^[\.]{1,2})\//),
   logsTtlValue: joi
     .string()
-    .regex(/^\d+d$/)
-    .required(),
+    .regex(/^\d+d$/),
   currentDumpName: joi.string(),
+  backupName: joi.string(),
+  storeStrategy: joi.string().valid('s3', 'local'),
+  s3: joi.object({
+    region: joi.string(),
+    bucket: joi.string(),
+    endpoint: joi.string(),
+    credentials: joi.object({
+      accessKeyId: joi.string(),
+      secretAccessKey: joi.string()
+    })
+  }),
+  tls: joi.object({
+    cert: joi.string(),
+    key: joi.string(),
+    ca: joi.string(),
+    rejectUnauthorized: joi.boolean(),
+    requestCert: joi.boolean(),
+  }),
   loggingAs: joi.string().valid('winston', 'console'),
   cert: joi.string(),
   key: joi.string(),
