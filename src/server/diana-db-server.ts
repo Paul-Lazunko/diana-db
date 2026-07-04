@@ -26,9 +26,9 @@ export class DianaDbServer {
     this.subscribers = new Set<string>();
     this.port = port;
     this.handler = handler;
-    const secure: boolean = ssl?.key && ssl?.cert;
-    const handler = this.onConnection.bind(this);
-    this.server = secure ? tls.createServer(ssl, handler) : net.createServer(handler);
+    const secure: boolean = Boolean(ssl?.key && ssl?.cert);
+    const connectionListener = this.onConnection.bind(this);
+    this.server = secure ? tls.createServer(ssl, connectionListener) : net.createServer(connectionListener);
     this.server.on('error', (e) => console.error);
   }
 
@@ -45,7 +45,7 @@ export class DianaDbServer {
     this.server.close();
   }
 
-  onConnection(socket: Socket) {
+  onConnection(socket: net.Socket | tls.TLSSocket) {
     const id: string = randomUUID();
     let savedPreviousStringData = '';
     let isPasswordCorrect: boolean = false;
@@ -143,7 +143,7 @@ export class DianaDbServer {
 
   public response(response: Response) {
     const { socket } = response;
-    const _socket: { socket: Socket; user: string } = this.sockets.get(socket);
+    const _socket: { socket: net.Socket | tls.TLSSocket; user: string } = this.sockets.get(socket);
     if (_socket) {
       const password = userStore.get(`user.${_socket.user}.password`);
       try {

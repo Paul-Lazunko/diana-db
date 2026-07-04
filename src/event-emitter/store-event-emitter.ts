@@ -3,7 +3,7 @@ import { STORE_EE_EVENT_NAME, STORE_EE_EVENT_TIMER } from '@const';
 import { store } from '@store';
 import { createWriteStream } from 'fs';
 import { config } from '@config';
-import { AbstractRestoreStrategy, storeStrategies } from '@store-strategy';
+import { AbstractStoreStrategy, storeStrategies } from '@store-strategy';
 
 const handlers: Map<string, any> = new Map<string, any>();
 const rootHandlers: Map<string, any> = new Map<string, any>();

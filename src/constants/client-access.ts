@@ -33,4 +33,5 @@ export const clientAccess: Record<ClientActions, DatabaseAccess> = {
   [ClientActions.UPDATE_COLLECTION]: DatabaseAccess.MODIFY,
   [ClientActions.LOCK_COLLECTION_SCHEMA]: DatabaseAccess.MODIFY,
   [ClientActions.UNLOCK_COLLECTION_SCHEMA]: DatabaseAccess.MODIFY,
+  [ClientActions.GET_COLLECTION_SCHEMA_LOCK]: DatabaseAccess.MODIFY,
 };
