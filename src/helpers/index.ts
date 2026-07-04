@@ -7,3 +7,6 @@ export * from './round';
 export * from './evaluate-pointer';
 export * from './convert-to-numeric';
 export * from './monitor';
+export * from './reactive-stream-factory';
+export * from './s3-write-stream';
+export * from './s3-read-stream';
