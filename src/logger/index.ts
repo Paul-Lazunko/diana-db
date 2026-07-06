@@ -6,7 +6,7 @@ import { config } from '@config';
 
 const eventEmitter: EventEmitter = new EventEmitter();
 
-if (config.loggingAs === 'winston') {
+if (config.logger === 'winston') {
   const logsDir = config.logsDirectory;
 
   if (!logsDir) {

@@ -43,6 +43,9 @@ export class Collection<T> {
   public transactionsData: Map<string, TransactionsData>;
   protected transactionsTimers: Map<string, NodeJS.Timeout>;
 
+  protected transactionsLocks: Map<string, string>;
+  protected transactionsLocksGroups: Map<string, string[]>; // transactionId, keys[]
+
   private aggregationFrameWork: AggregationFramework;
   private refs: Map<string, string | string[]>[] = [];
   private refsHolder: Map<string, string | string[]>[] = [];
@@ -69,6 +72,8 @@ export class Collection<T> {
     this.identifiers = new Set();
     this.transactionsData = new Map<string, TransactionsData>();
     this.transactionsTimers = new Map<string, NodeJS.Timeout>();
+    this.transactionsLocksGroups = new Map<string, string[]>();
+    this.transactionsLocks = new Map<string, string>();
     this.aggregationFrameWork = new AggregationFramework({ collection: this });
     this.validate = new Validator({ collection: this });
     this.views = {};
@@ -148,6 +153,7 @@ export class Collection<T> {
   public rollBackTransaction(transactionId: string) {
     this.clearTransactionTimer(transactionId);
     this.removeTransactionData(transactionId);
+    this.removeLocks(transactionId);
   }
 
   protected clearTransactionTimer(transactionId: string) {
@@ -264,6 +270,7 @@ export class Collection<T> {
     this.removeTransactionItems(transactionId);
     this.updateTransactionItems(transactionId);
     this.removeTransactionData(transactionId);
+    this.removeLocks(transactionId);
     viewEventEmitter.emit(this.viewTriggerEventName);
   }
 
@@ -287,16 +294,16 @@ export class Collection<T> {
           ? type.transactions.get(this.name).get(key).get(transactionId)
           : type.data.get(this.name).get(key);
         if (typeof dataHolder.hasValue === 'function' && dataHolder.hasValue(data[key])) {
-          throw ErrorFactory.collectionError(`property '${key}' with value ${data[key]} is used already`);
+          throw ErrorFactory.schemaError(`property '${key}' with value ${data[key]} is used already`);
         }
       }
       if (update && this.schema[key].mutable === false && Object.prototype.hasOwnProperty.apply(data, [key])) {
-        throw ErrorFactory.collectionError(
+        throw ErrorFactory.schemaError(
           `property '${key}' of the '${this.name}' collection's Schema is not mutable`,
         );
       }
       if (!update && this.schema[key].required && !Object.prototype.hasOwnProperty.apply(data, [key])) {
-        throw ErrorFactory.collectionError(`property '${key}' is required in the '${this.name}' collection's Schema`);
+        throw ErrorFactory.schemaError(`property '${key}' is required in the '${this.name}' collection's Schema`);
       }
       if ((this.schema[key] as StringFieldDefinition).uppercase && data[key]) {
         data[key] = data[key].toString().toUpperCase();
@@ -371,7 +378,7 @@ export class Collection<T> {
 
   public distinct(key: string): any[] {
     if (!this.schema[key]) {
-      throw ErrorFactory.collectionError(`property '${key}' doesn't exist in the '${this.name}' collection's Schema`);
+      throw ErrorFactory.schemaError(`property '${key}' doesn't exist in the '${this.name}' collection's Schema`);
     }
     const propertyType: Types = this.schema[key].type;
     const type: Field =
@@ -391,7 +398,7 @@ export class Collection<T> {
 
   protected getMaxOrMin(key: string, mode: 'min' | 'max') {
     if (!this.schema[key]) {
-      throw ErrorFactory.collectionError(`property '${key}' doesn't exist in the '${this.name}' collection's Schema`);
+      throw ErrorFactory.schemaError(`property '${key}' doesn't exist in the '${this.name}' collection's Schema`);
     }
     const propertyType: Types = this.schema[key].type;
     const type: Field =
@@ -476,6 +483,10 @@ export class Collection<T> {
 
   public remove(filterQueries: FindQuery[], transactionId?: string): RemoveResult {
     const items: any[] = this.find(filterQueries, [], null, null, null, transactionId);
+    this.checkLocks(items, transactionId || '');
+    if(transactionId) {
+      this.setLocks(items, transactionId);
+    }
     const result: RemoveResult = {
       found: 0,
       removed: 0,
@@ -525,7 +536,7 @@ export class Collection<T> {
 
   findByView(view: string, $match: FindQuery, $sort?: Sorting, $skip?: number, $limit?: number) {
     if (!this.views[view]) {
-      throw ErrorFactory.collectionError(`view "${view}" doesn't exist`);
+      throw ErrorFactory.schemaError(`view "${view}" doesn't exist`);
     }
     const transformQueries: TransformQuery[] = [
       {
@@ -552,7 +563,7 @@ export class Collection<T> {
 
   countByView(view: string, $match: FindQuery): number {
     if (!this.views[view]) {
-      throw ErrorFactory.collectionError(`view "${view}" doesn't exist`);
+      throw ErrorFactory.schemaError(`view "${view}" doesn't exist`);
     }
     const transformQueries: TransformQuery[] = [
       {
@@ -579,6 +590,10 @@ export class Collection<T> {
       executionTime: Date.now(),
     };
     const items: any[] = this.find(filterQueries, [], null, null, null, transactionId);
+    this.checkLocks(items, transactionId || '');
+    if(transactionId) {
+      this.setLocks(items, transactionId);
+    }
     result.found = items.length;
     const transactionExists: boolean = transactionId && this.transactionsData.has(transactionId);
     for (const item of items) {
@@ -897,4 +912,39 @@ export class Collection<T> {
       this.remove([filterQuery]);
     }
   }
+
+
+  protected checkLocks(items, transactionId) {
+    const lockedItems = items
+      .map((item: T & { _id }) => item._id)
+      .filter((id: string) => this.transactionsLocks.has(id) && this.transactionsLocks.get(id) !== transactionId);
+
+    if (lockedItems.length) {
+      throw ErrorFactory.lockError(`some items are locked by transactions`)
+    }
+  }
+
+  protected setLocks(items, transactionId) {
+    const ids = items.map((item: T & { _id }) => item._id);
+    const revisedIds: string[] = [];
+    for (const id of ids) {
+      if (this.transactionsLocks.has(id)) {
+        continue;
+      }
+      this.transactionsLocks.set(id, transactionId);
+      revisedIds.push(id);
+    }
+    this.transactionsLocksGroups.set(transactionId, revisedIds);
+  }
+
+  protected removeLocks(transactionId) {
+    const ids = this.transactionsLocksGroups.get(transactionId);
+    for (const id of ids) {
+      this.transactionsLocks.delete(id);
+    }
+    this.transactionsLocksGroups.delete(transactionId);
+  }
+
+
+
 }

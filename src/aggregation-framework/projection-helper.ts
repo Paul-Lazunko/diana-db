@@ -80,7 +80,7 @@ export class ProjectionHelper {
             }
             break;
           default:
-            throw ErrorFactory.collectionError(
+            throw ErrorFactory.schemaError(
               `$group requires to use aggregation functions instead of pointers or scalar values`,
             );
             break;

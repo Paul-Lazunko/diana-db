@@ -239,7 +239,7 @@ export class Database {
     for (const key in schema) {
       const validationResult: any = schemaItemValidator(schema[key]);
       if (validationResult.error) {
-        throw ErrorFactory.collectionError(validationResult.error.message);
+        throw ErrorFactory.schemaError(validationResult.error.message);
       }
     }
   }
@@ -299,7 +299,7 @@ export class Database {
   public startTransaction(autoRollbackAfterMS: number): string {
     const validationResult: any = autoRollbackValidator(autoRollbackAfterMS);
     if (validationResult && validationResult.error) {
-      throw ErrorFactory.databaseError(validationResult.error.message);
+      throw ErrorFactory.transactionError(validationResult.error.message);
     }
     const transactionId: string = randomUUID();
     this.collections.forEach((collection: Collection<any>, name: string) => {

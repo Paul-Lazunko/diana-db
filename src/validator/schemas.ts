@@ -3,7 +3,7 @@ import { Types, UnitOfTime, Weekday } from '@const';
 const joi = require('joi');
 
 const configurationOptions = joi.object({
-  port: joi.number().positive().integer().min(1025).max(65535),
+  port: joi.number().positive().integer().min(1025).max(65535).required(),
   transactionsMinAutoRollBackValue: joi.number().positive().integer(),
   transactionsMaxAutoRollBackValue: joi.number().positive().integer(),
   dumpCreateInterval: joi.string().valid('day', 'hour'),
@@ -12,15 +12,19 @@ const configurationOptions = joi.object({
   logsTtlValue: joi.string().regex(/^\d+d$/),
   currentDumpName: joi.string(),
   backupName: joi.string(),
-  storeStrategy: joi.string().valid('s3', 'local'),
+  storeStrategy: joi.string().valid('s3', 'local').required(),
   s3: joi.object({
-    region: joi.string(),
-    bucket: joi.string(),
-    endpoint: joi.string(),
+    region: joi.string().required(),
+    bucket: joi.string().required(),
+    endpoint: joi.string().required(),
     credentials: joi.object({
-      accessKeyId: joi.string(),
-      secretAccessKey: joi.string(),
-    }),
+      accessKeyId: joi.string().required(),
+      secretAccessKey: joi.string().required(),
+    }).required(),
+  }).when('storeStrategy', {
+    is: 's3',
+    then: joi.required(),
+    otherwise: joi.optional(),
   }),
   tls: joi.object({
     cert: joi.string(),
@@ -29,7 +33,7 @@ const configurationOptions = joi.object({
     rejectUnauthorized: joi.boolean(),
     requestCert: joi.boolean(),
   }),
-  loggingAs: joi.string().valid('winston', 'console'),
+  logger: joi.string().valid('winston', 'console'),
   cert: joi.string(),
   key: joi.string(),
 });

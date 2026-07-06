@@ -25,7 +25,7 @@ export class Validator {
       const filterQuery: any = filterQueries[i];
       for (const key in filterQuery) {
         if (!this.collection.schema[key]) {
-          throw ErrorFactory.collectionError(
+          throw ErrorFactory.schemaError(
             `property '${key}' doesn't exist in the '${this.collection.name}' collection's Schema`,
           );
         }
@@ -84,7 +84,7 @@ export class Validator {
     let validationResult: any;
     for (const key in data) {
       if (!this.collection.schema[key]) {
-        throw ErrorFactory.collectionError(
+        throw ErrorFactory.schemaError(
           `property '${key}' doesn't exist in Schema of the collection '${this.collection.name}'`,
         );
       }
@@ -95,7 +95,7 @@ export class Validator {
         typeof data[key] === 'object' &&
         !(Array.isArray(data[key]) && this.collection.schema[key]?.type === Types.ARRAY)
       ) {
-        throw ErrorFactory.collectionError(`property '${key}' should not be an object'`);
+        throw ErrorFactory.schemaError(`property '${key}' should not be an object'`);
       }
       switch (this.collection.schema[key].type) {
         case Types.ARRAY:
@@ -142,7 +142,7 @@ export class Validator {
           break;
       }
       if (validationResult && validationResult.error) {
-        throw ErrorFactory.collectionError(validationResult.error.message);
+        throw ErrorFactory.schemaError(validationResult.error.message);
       }
     }
   }

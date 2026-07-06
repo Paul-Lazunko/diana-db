@@ -8,8 +8,8 @@ export class LocalRestoreStrategy extends AbstractRestoreStrategy {
     super();
   }
 
-  async restore(store: Datanautics) {
-    const readStream = createReadStream(`${config.dumpDirectory}/${config.currentDumpName}`, { encoding: 'utf8' });
+  async restore(store: Datanautics, fileName: string) {
+    const readStream = createReadStream(fileName, { encoding: 'utf8' });
     return store.restore(readStream);
   }
 }

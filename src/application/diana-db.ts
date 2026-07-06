@@ -16,6 +16,7 @@ import { DatabaseUpdate } from '@parameters';
 import { userStore } from '@user-store';
 import { monitorEventEmitter } from '../event-emitter/monitor-event-emitter';
 import { restoreStrategies } from '@restore-strategy';
+import { Readable } from 'stream';
 
 const signals = [
   'SIGINT',
@@ -65,18 +66,11 @@ export class DianaDB {
   }
 
   public async start() {
-    try {
-      logger.info('Restoring...');
-      await this.restore();
-      logger.info('Restored successfully');
-      storeEventEmitter.emit(STORE_EE_EVENT_NAME);
-    } catch (e) {
-      logger.info('Restore Error:');
-      logger.error(e);
-      // throw ErrorFactory.restoreError(e.message);
-    }
+    logger.info(`Restoring databases using ${config.storeStrategy} strategy...`);
+    await this.restore();
+    logger.info('Databases have been restored successfully!');
+    storeEventEmitter.emit(STORE_EE_EVENT_NAME);
     this.server.start();
-    logger.info(`DianaDb Server has been started (pid: ${process.pid})`);
     monitorEventEmitter.emit('monitor');
   }
 
@@ -99,31 +93,36 @@ export class DianaDB {
   }
 
   protected async getUserFileContent() {
-    const userFilePath = `${config.dumpDirectory}/${DEFAULT_DIANA_DB_USER_FILE_NAME}`;
-    const readStreamUsers = createReadStream(userFilePath, { encoding: 'utf8' });
-    await userStore.init(readStreamUsers);
-    readStreamUsers.destroy();
+    switch (config.storeStrategy) {
+      case StoreStrategy.LOCAL:
+        await restoreStrategies.local.restore(userStore, `${config.dumpDirectory}/${DEFAULT_DIANA_DB_USER_FILE_NAME}`);
+        break;
+      case StoreStrategy.S3:
+        await restoreStrategies.s3.restore(userStore, DEFAULT_DIANA_DB_USER_FILE_NAME);
+        break;
+    }
   }
 
   protected async restore() {
     switch (config.storeStrategy) {
       case StoreStrategy.LOCAL:
-        await restoreStrategies.local.restore(store);
+        await restoreStrategies.local.restore(store, `${config.dumpDirectory}/${config.currentDumpName}`);
         break;
       case StoreStrategy.S3:
-        await restoreStrategies.s3.restore(store);
+        await restoreStrategies.s3.restore(store, config.currentDumpName);
         break;
     }
     await this.getUserFileContent();
-    const userFilePath = `${config.dumpDirectory}/${DEFAULT_DIANA_DB_USER_FILE_NAME}`;
-    watchFile(userFilePath, async () => {
-      try {
-        await this.getUserFileContent();
-      } catch (e) {
-        logger.error(ErrorFactory.restoreError(e.message));
-      }
-    });
-
+    if (config.storeStrategy === StoreStrategy.LOCAL) {
+      const userFilePath = `${config.dumpDirectory}/${DEFAULT_DIANA_DB_USER_FILE_NAME}`;
+      watchFile(userFilePath, async () => {
+        try {
+          await this.getUserFileContent();
+        } catch (e) {
+          logger.error(ErrorFactory.restoreError(e.message));
+        }
+      });
+    }
     const databases: any = store.get('db');
     const migrations = store.get('migrations');
     if (migrations && typeof migrations === 'object') {

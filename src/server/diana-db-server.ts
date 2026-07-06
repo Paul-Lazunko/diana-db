@@ -6,6 +6,8 @@ import { ServerOptions } from '@options';
 import { Request, Response } from '@dto';
 import { userStore } from '@user-store';
 import { logger } from '@logger';
+import * as process from 'process';
+import { ErrorFactory } from '@error';
 
 export class DianaDbServer {
   private server: net.Server;
@@ -34,7 +36,7 @@ export class DianaDbServer {
 
   public start() {
     this.server.listen(this.port);
-    logger.info(`Diana DB Server is listening the port #${this.port}`);
+    logger.info(`DianaDB Server has been started (port: ${this.port}, pid: ${process.pid})`);
   }
 
   public getSockets() {
@@ -110,10 +112,10 @@ export class DianaDbServer {
             }
             this.handler(request);
           } catch (e) {
-            logger.error(e);
             if (isPasswordCorrect) {
               savedPreviousStringData += dataStringSplit[i];
             } else {
+              logger.error(ErrorFactory.connectionError(e.message));
               return socket.end();
             }
           }
@@ -137,6 +139,7 @@ export class DianaDbServer {
         this.sockets.delete(id);
         this.subscribers.delete(id);
       }
+      logger.error(ErrorFactory.connectionError(e.message));
       socket.end();
     });
   }

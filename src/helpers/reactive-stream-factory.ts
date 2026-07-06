@@ -1,7 +1,8 @@
 import { Readable, Writable } from 'stream';
 
 export function reactiveStreamFactory(
-  nextFunction: (Readable) => Promise<void>,
+  nextFunction: (readable: Readable, fileName: string) => Promise<void>,
+  fileName: string,
   errorHandler: (error?: Error) => void,
 ) {
   const chunks: any[] = [];
@@ -11,6 +12,6 @@ export function reactiveStreamFactory(
     callback();
   };
   writable.on('error', errorHandler);
-  writable.on('finish', () => nextFunction(Readable.from(chunks))?.catch(errorHandler));
+  writable.on('finish', () => nextFunction(Readable.from(chunks), fileName)?.catch(errorHandler));
   return writable;
 }

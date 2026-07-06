@@ -8,8 +8,8 @@ export class LocalStoreStrategy extends AbstractStoreStrategy {
     super();
   }
 
-  async store(store: Datanautics) {
-    const writeStream = createWriteStream(`${config.dumpDirectory}/${config.currentDumpName}`, { encoding: 'utf-8' });
+  async store(store: Datanautics, fileName) {
+    const writeStream = createWriteStream(fileName, { encoding: 'utf-8' });
     await store.store(writeStream);
     return new Promise((resolve) => {
       writeStream.close(() => resolve());

@@ -13,12 +13,12 @@ export class S3StoreStrategy extends AbstractStoreStrategy {
     this.s3Client = new S3Client(config.s3);
   }
 
-  async store(store: Datanautics) {
-    const writable = reactiveStreamFactory(this.process.bind(this), logger.error);
+  async store(store: Datanautics, fileName: string) {
+    const writable = reactiveStreamFactory(this.process.bind(this), fileName,  logger.error);
     await store.store(writable);
   }
 
-  async process(readable: Readable) {
-    return uploadStreamTos3(this.s3Client, readable, config.s3.bucket, config.currentDumpName, 'private');
+  async process(readable: Readable, fileName) {
+    return uploadStreamTos3(this.s3Client, readable, config.s3.bucket, fileName, 'private');
   }
 }

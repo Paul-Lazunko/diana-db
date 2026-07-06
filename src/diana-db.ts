@@ -25,24 +25,28 @@ import {
   copyFileSync,
   accessSync,
   constants,
-  statSync,
-  createReadStream,
-  createWriteStream,
+  unlinkSync
 } from 'fs';
 import { resolve } from 'path';
 import { execSync, spawn } from 'child_process';
 import { Datanautics } from 'datanautics';
 import { config } from '@config';
+import { DEFAULT_DIANA_DB_USER_FILE_NAME, StoreStrategy } from '@const';
+import { restoreStrategies } from '@restore-strategy';
+import { storeStrategies } from '@store-strategy';
+import { logger } from '@logger';
+import { ErrorFactory } from '@error';
+import { S3Driver } from '@s3-driver';
 
-// const { version } = require('../../package.json');
 const version = '2.0.0';
 
-const userWriteStore: Datanautics = new Datanautics({});
+const userStore: Datanautics = new Datanautics({});
 
 const envMapping = {
   binary_path: 'BIN_PATH',
   port: 'DIANA_DB_PORT',
   dump_create_interval: 'DIANA_DB_DUMP_CREATE_INTERVAL',
+  logger: 'DIANA_DB_LOGGER',
   logs_directory: 'DIANA_DB_LOG_DIRECTORY',
   dump_directory: 'DIANA_DB_DUMP_DIRECTORY',
   logs_ttl_value: 'DIANA_DB_LOG_TTL',
@@ -66,7 +70,7 @@ const envMapping = {
 const DEFAULT_CONF = '/etc/diana-db/diana-db.conf';
 const SERVER_PROC_NAME = 'diana-db-server';
 
-function echoName() {
+function echoInfo() {
   console.log(`DianaDB Management Tool ${version}`);
 }
 
@@ -147,18 +151,18 @@ function startServer(env) {
 }
 
 function addUser(username: string, password: string) {
-  userWriteStore.set(`user.${username}.user`, username);
-  userWriteStore.set(`user.${username}.password`, password);
+  userStore.set(`user.${username}.user`, username);
+  userStore.set(`user.${username}.password`, password);
 }
 
 function grantAccess(username: string, db: string, access: string) {
-  userWriteStore.set(`user.${username}.db.${db}`, access);
+  userStore.set(`user.${username}.db.${db}`, access);
 }
 function removeAccess(username: string, db: string) {
-  userWriteStore.set(`user.${username}.db.${db}`, undefined);
+  userStore.set(`user.${username}.db.${db}`, undefined);
 }
 function removeUser(username: string) {
-  userWriteStore.set(`user.${username}`, undefined);
+  userStore.set(`user.${username}`, undefined);
 }
 
 const argv = process.argv.slice(2);
@@ -184,26 +188,54 @@ if (cIdxLong !== -1 && rest[cIdxLong + 1]) {
 
 async function main() {
   try {
-    const readStream = createReadStream(`${config.dumpDirectory}/users`, { encoding: 'utf-8' });
-    const writeStream = createWriteStream(`${config.dumpDirectory}/users`, { encoding: 'utf-8' });
 
-    await userWriteStore.init(readStream);
+    const envObj: Record<string, string> = parseConfig(confPath);
+
+    let s3Driver: S3Driver;
+
+
+    const s3Options = {
+      bucket: envObj.DIANA_DB_STORE_S3_BUCKET,
+      endpoint: envObj.DIANA_DB_STORE_S3_ENDPOINT,
+      region: envObj.DIANA_DB_STORE_S3_REGION,
+      credentials: {
+        accessKeyId: envObj.DIANA_DB_STORE_S3_ACCESS_KEY_ID,
+        secretAccessKey: envObj.DIANA_DB_STORE_S3_SECRET_ACCESS_KEY,
+      },
+    }
+
+    if (envObj.DIANA_DB_STORE_STRATEGY === StoreStrategy.LOCAL) {
+      s3Driver = new S3Driver(s3Options);
+    }
+
+    switch (envObj.DIANA_DB_STORE_STRATEGY) {
+      case StoreStrategy.LOCAL:
+        await restoreStrategies.local.restore(userStore, `${envObj.DIANA_DB_DUMP_DIRECTORY}/${DEFAULT_DIANA_DB_USER_FILE_NAME}`).catch((e) => {
+          logger.error(ErrorFactory.requestError(e.message))
+        });
+        break;
+      case StoreStrategy.S3:
+        await restoreStrategies.s3.restore(userStore, DEFAULT_DIANA_DB_USER_FILE_NAME).catch((e) => {
+          logger.error(ErrorFactory.requestError(e.message))
+        });;
+        break;
+    }
+
     switch (command) {
       case 'start': {
-        echoName();
+        echoInfo();
         stopServer();
-        const envObj: Record<string, string> = parseConfig(confPath);
         startServer(envObj);
         break;
       }
       case 'stop': {
-        echoName();
+        echoInfo();
         stopServer();
         console.log('Stopped the Server');
         break;
       }
       case 'add-user': {
-        echoName();
+        echoInfo();
         const uIdx = rest.indexOf('-u');
         const pIdx = rest.indexOf('-p');
         const username = uIdx !== -1 ? rest[uIdx + 1] : undefined;
@@ -217,7 +249,7 @@ async function main() {
         break;
       }
       case 'grant-access': {
-        echoName();
+        echoInfo();
         const uIdx = rest.indexOf('-u');
         const dbIdx = rest.indexOf('-db');
         const username = uIdx !== -1 ? rest[uIdx + 1] : undefined;
@@ -239,7 +271,7 @@ async function main() {
         break;
       }
       case 'remove-access': {
-        echoName();
+        echoInfo();
         const uIdx = rest.indexOf('-u');
         const dbIdx = rest.indexOf('-db');
         const username = uIdx !== -1 ? rest[uIdx + 1] : undefined;
@@ -253,7 +285,7 @@ async function main() {
         break;
       }
       case 'remove-user': {
-        echoName();
+        echoInfo();
         const uIdx = rest.indexOf('-u');
         const username = uIdx !== -1 ? rest[uIdx + 1] : undefined;
         if (!username) {
@@ -266,53 +298,78 @@ async function main() {
       }
       case '-v':
       case '--version': {
-        echoName();
+        echoInfo();
+        break;
+      }
+      case '-s':
+      case '--settings': {
+        echoInfo();
+        console.log(readFileSync(confPath));
         break;
       }
       case 'list-backups': {
-        echoName();
-        const envObj: Record<string, string> = parseConfig(confPath);
-        const backups = readdirSync(envObj.DIANA_DB_DUMP_DIRECTORY);
-        console.log(
-          backups
-            .filter(
-              (filename: string) =>
-                ![
-                  'users',
-                  'current.didb',
-                ].includes(filename),
-            )
-            .join('\r\n'),
-        );
+        echoInfo();
+        if (envObj.DIANA_DB_STORE_STRATEGY === 's3') {
+          const objects = await s3Driver?.listObjects();
+          console.log(
+            objects
+              .filter(
+                (key: string) =>
+                  ![
+                    'users',
+                    'current.didb',
+                  ].includes(key),
+              )
+              .join('\r\n'),
+          );
+        } else {
+          const backups = readdirSync(envObj.DIANA_DB_DUMP_DIRECTORY);
+          console.log(
+            backups
+              .filter(
+                (filename: string) =>
+                  ![
+                    'users',
+                    'current.didb',
+                  ].includes(filename),
+              )
+              .join('\r\n'),
+          );
+        }
         break;
       }
       case 'create-backup': {
-        echoName();
-        const envObj: Record<string, string> = parseConfig(confPath);
+        echoInfo();
         const nIdx = rest.indexOf('-n');
-        const name = nIdx !== -1 ? rest[nIdx + 1] : undefined;
+        const nameString = nIdx !== -1 ? rest[nIdx + 1] : undefined;
+        const name = nameString.replace(/.didb$/, '');
         if (!name) {
           warn('create-backup requires -n <backup_name>');
           process.exit(1);
         }
-        copyFileSync(
-          `${envObj.DIANA_DB_DUMP_DIRECTORY}/current.didb`,
-          `${envObj.DIANA_DB_DUMP_DIRECTORY}/${name}.didb`,
-        );
-        console.log(`${envObj.DIANA_DB_DUMP_DIRECTORY}/${name}.didb created`);
+        if (envObj.DIANA_DB_STORE_STRATEGY === 's3') {
+          await s3Driver?.copyObject(`${name}.didb`, 'current.didb');
+          console.log(`${name}.didb created`);
+        } else {
+          copyFileSync(
+            `${envObj.DIANA_DB_DUMP_DIRECTORY}/current.didb`,
+            `${envObj.DIANA_DB_DUMP_DIRECTORY}/${name}.didb`,
+          );
+          console.log(`${envObj.DIANA_DB_DUMP_DIRECTORY}/${name}.didb created`);
+        }
         break;
       }
       case 'apply-backup': {
-        echoName();
+        echoInfo();
         const envObj: Record<string, string> = parseConfig(confPath);
         const nIdx = rest.indexOf('-n');
-        const name = nIdx !== -1 ? rest[nIdx + 1] : undefined;
+        const nameString = nIdx !== -1 ? rest[nIdx + 1] : undefined;
+        const name = nameString.replace(/.didb$/, '');
         if (!name) {
           warn('create-backup requires -n <backup_name>');
           process.exit(1);
         }
-        const backupPath: string = `${envObj.DIANA_DB_DUMP_DIRECTORY}/${name}.didb`;
-        const currentPath: string = `${envObj.DIANA_DB_DUMP_DIRECTORY}/current.didb`;
+
         let pid: string;
         try {
           pid = execSync(`pidof ${SERVER_PROC_NAME}`, {
@@ -331,24 +388,75 @@ async function main() {
           warn(`DianaDb Server should be stopped before the applying of the backup`);
           process.exit(1);
         }
-        try {
-          accessSync(currentPath, constants.W_OK);
-        } catch {
-          warn(`Couldn't write the file ${currentPath}`);
+
+        if (envObj.DIANA_DB_STORE_STRATEGY === 's3') {
+          const backupKey = `${name}.didb`;
+          const exists = await s3Driver?.objectExists(backupKey);
+          if (!exists) {
+            warn(`Backup ${backupKey} doesn't exist`);
+            process.exit(1);
+          }
+          await s3Driver?.copyObject('current.didb', backupKey);
+          console.log(`Backup applied ${backupKey}`);
+        } else {
+          const backupPath: string = `${envObj.DIANA_DB_DUMP_DIRECTORY}/${name}.didb`;
+          const currentPath: string = `${envObj.DIANA_DB_DUMP_DIRECTORY}/current.didb`;
+          try {
+            accessSync(currentPath, constants.W_OK);
+          } catch {
+            warn(`Couldn't write the file ${currentPath}`);
+            process.exit(1);
+          }
+          if (!existsSync(backupPath)) {
+            warn(`File ${backupPath} doesn't exist`);
+            process.exit(1);
+          }
+          try {
+            accessSync(backupPath, constants.R_OK);
+          } catch {
+            console.warn(`Couldn't read the file ${backupPath}`);
+            process.exit(1);
+          }
+          copyFileSync(backupPath, `${envObj.DIANA_DB_DUMP_DIRECTORY}/current.didb`);
+          console.log(`Backup applied ${envObj.DIANA_DB_DUMP_DIRECTORY}/${name}.didb`);
+        }
+        break;
+      }
+
+      case 'remove-backup': {
+        echoInfo();
+        const nIdx = rest.indexOf('-n');
+        const nameString = nIdx !== -1 ? rest[nIdx + 1] : undefined;
+        const name = nameString.replace(/.didb$/, '');
+        if (!name) {
+          warn('remove-backup requires -n <backup_name>');
           process.exit(1);
         }
-        if (!existsSync(backupPath)) {
-          warn(`File ${backupPath} doesn't exist`);
-          process.exit(1);
+
+        if (envObj.DIANA_DB_STORE_STRATEGY === 's3') {
+          const backupKey = `${name}.didb`;
+          const exists = await s3Driver?.objectExists(backupKey);
+          if (!exists) {
+            warn(`Backup ${backupKey} doesn't exist`);
+            process.exit(1);
+          }
+          await s3Driver?.deleteObject(backupKey);
+          console.log(`Backup removed ${backupKey}`);
+        } else {
+          const backupPath: string = `${envObj.DIANA_DB_DUMP_DIRECTORY}/${name}.didb`;
+          if (!existsSync(backupPath)) {
+            warn(`Backup ${backupPath} doesn't exist`);
+            process.exit(1);
+          }
+          try {
+            accessSync(backupPath, constants.W_OK);
+          } catch {
+            warn(`Couldn't remove the file ${backupPath}`);
+            process.exit(1);
+          }
+          unlinkSync(backupPath);
+          console.log(`Backup removed ${backupPath}`);
         }
-        try {
-          accessSync(backupPath, constants.R_OK);
-        } catch {
-          console.warn(`Couldn't read the file ${backupPath}`);
-          process.exit(1);
-        }
-        copyFileSync(backupPath, `${envObj.DIANA_DB_DUMP_DIRECTORY}/current.didb`);
-        console.log(`Backup applied ${envObj.DIANA_DB_DUMP_DIRECTORY}/${name}.didb`);
         break;
       }
 
@@ -357,8 +465,18 @@ async function main() {
         process.exit(1);
         break;
     }
-    await userWriteStore.store(writeStream);
-    writeStream.end();
+
+
+    switch (config.storeStrategy) {
+      case StoreStrategy.LOCAL:
+        await storeStrategies.local.store(userStore, `${config.dumpDirectory}/${DEFAULT_DIANA_DB_USER_FILE_NAME}`);
+        break;
+      case StoreStrategy.S3:
+        await storeStrategies.s3.store(userStore, DEFAULT_DIANA_DB_USER_FILE_NAME);
+        break;
+    }
+
+
   } catch (e) {
     warn(e.message);
   }

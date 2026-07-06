@@ -8,6 +8,7 @@ import { store } from '@store';
 import { logger } from '@logger';
 import { userStore } from '@user-store';
 import { state } from '@state';
+import { Schema } from '@collection';
 
 export class RequestController {
   protected databases: Map<string, Database>;
@@ -74,11 +75,11 @@ export class RequestController {
       const db: Database = this.getDatabase(database, !this.nonRequiredDbActions.includes(action));
       const hasGeneralDbAccess: boolean = this.checkDbAccess(user, database, DatabaseAccess.READ);
       if (!hasGeneralDbAccess && !this.nonRequiredDbActions.includes(action)) {
-        throw ErrorFactory.databaseError(`User "${user}" doesn't have access to the database "${database}"`);
+        throw ErrorFactory.accessError(`User "${user}" doesn't have access to the database "${database}"`);
       }
       const hasAccessToAction: boolean = this.checkClientActionAccess(user, database, action);
       if (!hasAccessToAction && !this.nonRequiredDbActions.includes(action)) {
-        throw ErrorFactory.databaseError(`Action "${action}" not allowed for user "${user}" in database "${database}"`);
+        throw ErrorFactory.accessError(`Action "${action}" not allowed for user "${user}" in database "${database}"`);
       }
       if (action !== ClientActions.ADD_COLLECTION && !this.nonRequiredCollectionActions.includes(action)) {
         this.checkCollectionExistence(db, collection);
@@ -91,7 +92,7 @@ export class RequestController {
           (database: string) => !this.checkDbAccess(user, database, DatabaseAccess.READ),
         );
         if (hasNoAccessToThisDatabase) {
-          throw ErrorFactory.databaseError(
+          throw ErrorFactory.accessError(
             `User "${user}" doesn't have read access to the database "${hasNoAccessToThisDatabase}"`,
           );
         }
@@ -160,7 +161,7 @@ export class RequestController {
           response.data = db.getCollectionNames();
           break;
         case ClientActions.GET_COLLECTION_SCHEMA:
-          response.data = db.getCollectionSchema(collection);
+          response.data = { schema: db.getCollectionSchema(collection), locked: db.getCollectionSchemaLock(collection) }
           break;
         case ClientActions.FIND:
           const resultFind: any[] = db.collections
@@ -240,7 +241,7 @@ export class RequestController {
 
   private getDatabase(name: string, throwError?: boolean) {
     if (!name && throwError) {
-      throw ErrorFactory.databaseError('Database name is required');
+      throw ErrorFactory.requestError('database name is required');
     }
     if (name && !this.databases.has(name)) {
       const database = new Database({ name, dianaDB: this.dianaDB });
@@ -252,7 +253,7 @@ export class RequestController {
 
   private checkCollectionExistence(db: Database, collection: string) {
     if (!db.collections.has(collection)) {
-      throw ErrorFactory.databaseError(`collection '${collection}' doesn't exist`);
+      throw ErrorFactory.requestError(`collection with name '${collection}' doesn't exist`);
     }
   }
 

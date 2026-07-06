@@ -33,6 +33,7 @@
       "@parameters": ["src/parameters"],
       "@query-processor": ["src/query-processor"],
       "@queue": ["src/queue"],
+      "@s3-driver": ["src/s3"],
       "@server": ["src/server"],
       "@state": ["src/state"],
       "@store": ["src/store"],

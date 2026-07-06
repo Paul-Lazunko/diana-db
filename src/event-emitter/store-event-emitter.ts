@@ -4,6 +4,8 @@ import { store } from '@store';
 import { createWriteStream } from 'fs';
 import { config } from '@config';
 import { AbstractStoreStrategy, storeStrategies } from '@store-strategy';
+import { logger } from '@logger';
+import { ErrorFactory } from '@error';
 
 const handlers: Map<string, any> = new Map<string, any>();
 const rootHandlers: Map<string, any> = new Map<string, any>();
@@ -37,10 +39,14 @@ storeEventEmitter.on(STORE_EE_EVENT_NAME, async () => {
   });
   switch (config.storeStrategy) {
     case 's3':
-      await storeStrategies.s3.store(store);
+      await storeStrategies.s3.store(store, config.currentDumpName).catch((e: Error) => {
+        logger.error(ErrorFactory.storeError(e.message))
+      });;
       break;
     case 'local':
-      await storeStrategies.local.store(store);
+      await storeStrategies.local.store(store, `${config.dumpDirectory}/${config.currentDumpName}`).catch((e: Error) => {
+        logger.error(ErrorFactory.storeError(e.message))
+      });;
       break;
   }
   setTimeout(() => {

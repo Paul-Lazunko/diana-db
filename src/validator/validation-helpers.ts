@@ -90,25 +90,15 @@ const setDataValidator: any = {
   },
 };
 
-const schemaItemValidator = (data: any) => {
-  return schemaItem.validate(data, defaultValidationOptions);
-};
+const schemaItemValidator = (data: any) => schemaItem.validate(data, defaultValidationOptions);
 
-const transformQueriesValidator = (data: any[]) => {
-  return transformQueries.validate(data, defaultValidationOptions);
-};
+const transformQueriesValidator = (data: any[]) => transformQueries.validate(data, defaultValidationOptions);
 
-const validateTimeString = (data: any) => {
-  return joi.string().isoDate().validate(data);
-};
+const validateTimeString = (data: any) => joi.string().isoDate().validate(data);
 
-const sortQueryValidator = (data: any) => {
-  return sortQuery.validate(data);
-};
+const sortQueryValidator = (data: any) => sortQuery.validate(data);
 
-const configurationValidator = (options: any) => {
-  return configurationOptions.validate(options, { allowUnknown: false, convert: true });
-};
+const configurationValidator = (options: any) => configurationOptions.validate(options, { allowUnknown: false, convert: true });
 
 const autoRollbackValidator = (value: any) => {
   return joi

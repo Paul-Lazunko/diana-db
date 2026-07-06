@@ -1,32 +1,32 @@
 import { EventEmitter } from 'events';
-import { resolve } from 'path';
-import { existsSync, copyFile } from 'fs';
 import { config } from '@config';
-import { DUMP_EE_EVENT_NAME, StoreStrategy } from '@const';
+import { DUMP_EE_EVENT_NAME } from '@const';
 import { logger } from '@logger';
 import { getMillisecondsFromDumpInterval } from '@helper';
+import { storeStrategies } from '@store-strategy';
+import { store } from '@store';
+import { ErrorFactory } from '@error';
 
-const dataPath: string = resolve(`${config.dumpDirectory}/${config.currentDumpName}`);
-const dumpPath: string = resolve(`${config.dumpDirectory}/${config.backupName}`);
 
 const dumpEventEmitter: EventEmitter = new EventEmitter();
 
-dumpEventEmitter.on(DUMP_EE_EVENT_NAME, () => {
-  if (config.storeStrategy === StoreStrategy.LOCAL) {
-    if (existsSync(dataPath)) {
-      if (!existsSync(dumpPath)) {
-        copyFile(dataPath, dumpPath, (error) => {
-          if (error) {
-            logger.error(error);
-          }
-        });
-      }
-    }
-    if (config.dumpCreateInterval) {
-      setTimeout(() => {
-        dumpEventEmitter.emit(DUMP_EE_EVENT_NAME);
-      }, getMillisecondsFromDumpInterval(config.dumpCreateInterval));
-    }
+dumpEventEmitter.on(DUMP_EE_EVENT_NAME, async () => {
+  switch (config.storeStrategy) {
+    case 's3':
+      await storeStrategies.s3.store(store, config.backupName).catch((e: Error) => {
+        logger.error(ErrorFactory.backupError(e.message))
+      });
+      break;
+    case 'local':
+      await storeStrategies.local.store(store, `${config.dumpDirectory}/${config.backupName}`).catch((e: Error) => {
+        logger.error(ErrorFactory.backupError(e.message))
+      });
+      break;
+  }
+  if (config.dumpCreateInterval) {
+    setTimeout(() => {
+      dumpEventEmitter.emit(DUMP_EE_EVENT_NAME);
+    }, getMillisecondsFromDumpInterval(config.dumpCreateInterval));
   }
 });
 
