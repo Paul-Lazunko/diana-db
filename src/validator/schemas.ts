@@ -14,13 +14,13 @@ const configurationOptions = joi.object({
   backupName: joi.string(),
   storeStrategy: joi.string().valid('s3', 'local').required(),
   s3: joi.object({
-    region: joi.string().required(),
-    bucket: joi.string().required(),
-    endpoint: joi.string().required(),
+    region: joi.string(),
+    bucket: joi.string(),
+    endpoint: joi.string(),
     credentials: joi.object({
-      accessKeyId: joi.string().required(),
-      secretAccessKey: joi.string().required(),
-    }).required(),
+      accessKeyId: joi.string(),
+      secretAccessKey: joi.string(),
+    }),
   }).when('storeStrategy', {
     is: 's3',
     then: joi.required(),

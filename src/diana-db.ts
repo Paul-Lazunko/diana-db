@@ -304,7 +304,8 @@ async function main() {
       case '-s':
       case '--settings': {
         echoInfo();
-        console.log(readFileSync(confPath));
+        const content = readFileSync(confPath)
+        console.log(content.toString('utf8'));
         break;
       }
       case 'list-backups': {
