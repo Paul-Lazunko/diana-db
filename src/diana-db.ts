@@ -38,7 +38,7 @@ import { logger } from '@logger';
 import { ErrorFactory } from '@error';
 import { S3Driver } from '@s3-driver';
 
-const version = '2.0.0';
+const version = '2.1.4';
 
 const userStore: Datanautics = new Datanautics({});
 

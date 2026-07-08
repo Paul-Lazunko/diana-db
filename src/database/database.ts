@@ -152,6 +152,13 @@ export class Database {
     return this.collections.get(collection)?.isSchemaLocked;
   }
 
+  public getCollectionViews(collection: string) {
+    if (this.collections.has(collection)) {
+      return this.collections.get(collection).getViews();
+    }
+    return {};
+  }
+
   public lockCollectionSchema(collection: string) {
     if (this.collections.has(collection)) {
       this.collections.get(collection).lockSchema();

@@ -22,6 +22,7 @@ export enum ClientActions {
   UPDATE_COLLECTION = 'updateCollection',
   GET_COLLECTION_NAMES = 'getCollectionNames',
   GET_COLLECTION_SCHEMA = 'getCollectionSchema',
+  GET_COLLECTION_VIEWS = 'getCollectionViews',
   GET_COLLECTION_SCHEMA_LOCK = 'getCollectionSchemaLock',
   LOCK_COLLECTION_SCHEMA = 'lockCollectionSchema',
   UNLOCK_COLLECTION_SCHEMA = 'unlockCollectionSchema',

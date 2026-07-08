@@ -92,6 +92,14 @@ export class Collection<T> {
     this.isSchemaLocked = false;
   }
 
+  public getViews() {
+    const response = {};
+    for ( const view in this.views) {
+      response[view] = { transformQueries: this.views[view].transformQueries }
+    }
+    return response;
+  }
+
   public createView(name: string, transformQueries: TransformQuery[]) {
     this.validate.transformQueries(transformQueries);
     this.views[name] = { transformQueries, items: [] };

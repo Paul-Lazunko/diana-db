@@ -138,24 +138,27 @@ export class RequestController {
             response.error = `Schema of the collection'${collection}' is locked`;
           } else {
             db.updateCollection(collection, schema);
-            response.data = [{ collection, action: 'updated' }];
+            response.data = { collection, action: 'updated' };
           }
           break;
         case ClientActions.LOCK_COLLECTION_SCHEMA:
           db.lockCollectionSchema(collection);
-          response.data = [{ collection, locked: true }];
+          response.data = { collection, locked: true };
+          break;
+        case ClientActions.GET_COLLECTION_VIEWS:
+          response.data = db.getCollectionViews(collection);
           break;
         case ClientActions.GET_COLLECTION_SCHEMA_LOCK:
           const locked: boolean = db.getCollectionSchemaLock(collection);
-          response.data = [{ collection, locked }];
+          response.data = { collection, locked };
           break;
         case ClientActions.UNLOCK_COLLECTION_SCHEMA:
           db.lockCollectionSchema(collection);
-          response.data = [{ collection: collection, locked: false }];
+          response.data = { collection: collection, locked: false };
           break;
         case ClientActions.REMOVE_COLLECTION:
           db.removeCollection(collection);
-          response.data = [{ collection }];
+          response.data = { collection };
           break;
         case ClientActions.GET_COLLECTION_NAMES:
           response.data = db.getCollectionNames();
