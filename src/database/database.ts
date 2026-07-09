@@ -184,6 +184,7 @@ export class Database {
       for (const key in c.schema) {
         if (!schema[key] && key !== '_id') {
           c.schemaUpdated[key] = Date.now();
+          delete c.schema[key];
           this.Types.get(c.schema[key].type)?.removeCollectionKey(collection);
         }
       }
