@@ -102,7 +102,11 @@ const timeField = joi.alternatives(
     })
     .min(1),
 );
-const booleanField = joi.alternatives(joi.boolean().allow(true, false), joi.string().regex(/^\$/));
+const booleanField = joi.alternatives(
+  joi.boolean().allow(true, false),
+  joi.string().regex(/^\$/),
+  joi.number().allow(0, 1)
+);
 
 const geoField = joi.alternatives(
   joi.object({
