@@ -21,3 +21,5 @@ export * from './database-access';
 export * from './client-access';
 
 export * from './store-strategy';
+
+export * from './version';

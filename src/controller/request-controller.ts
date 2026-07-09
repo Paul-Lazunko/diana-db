@@ -1,5 +1,13 @@
 import { DianaDB } from '@application';
-import { clientAccess, ClientActions, DatabaseAccess, MigrationStatus, ServerActions, TransactionStatus } from '@const';
+import {
+  clientAccess,
+  ClientActions,
+  DatabaseAccess,
+  MigrationStatus,
+  ServerActions,
+  TransactionStatus,
+  VERSION,
+} from '@const';
 import { Database } from '@database';
 import { ErrorFactory } from '@error';
 import { RequestControllerOptions } from '@options';
@@ -8,7 +16,6 @@ import { store } from '@store';
 import { logger } from '@logger';
 import { userStore } from '@user-store';
 import { state } from '@state';
-import { Schema } from '@collection';
 
 export class RequestController {
   protected databases: Map<string, Database>;
@@ -98,6 +105,9 @@ export class RequestController {
         }
       }
       switch (action) {
+        case ClientActions.GET_VERSION:
+          response.data = { version: VERSION };
+          break;
         case ClientActions.GET_HEALTH:
           response.data = state.injected.health;
           break;

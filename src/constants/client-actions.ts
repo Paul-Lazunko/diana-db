@@ -32,4 +32,5 @@ export enum ClientActions {
   ADD_USER = 'addUser',
   REMOVE_USER = 'removeUser',
   GRANT_ACCESS = 'grantAccess',
+  GET_VERSION = 'getVersion',
 }

@@ -31,14 +31,12 @@ import { resolve } from 'path';
 import { execSync, spawn } from 'child_process';
 import { Datanautics } from 'datanautics';
 import { config } from '@config';
-import { DEFAULT_DIANA_DB_USER_FILE_NAME, StoreStrategy } from '@const';
+import { DEFAULT_DIANA_DB_USER_FILE_NAME, StoreStrategy, VERSION } from '@const';
 import { restoreStrategies } from '@restore-strategy';
 import { storeStrategies } from '@store-strategy';
 import { logger } from '@logger';
 import { ErrorFactory } from '@error';
 import { S3Driver } from '@s3-driver';
-
-const version = '2.1.4';
 
 const userStore: Datanautics = new Datanautics({});
 
@@ -71,7 +69,7 @@ const DEFAULT_CONF = '/etc/diana-db/diana-db.conf';
 const SERVER_PROC_NAME = 'diana-db-server';
 
 function echoInfo() {
-  console.log(`DianaDB Management Tool ${version}`);
+  console.log(`DianaDB Management Tool ${VERSION}`);
 }
 
 function warn(error: string) {
