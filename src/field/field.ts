@@ -55,7 +55,12 @@ export class Field {
     }
   }
 
-  public removeCollectionKey(collection: string) {
+  public removeCollectionKey(collection: string, key: string) {
+    this.data.get(collection).delete(key);
+    this.transactions.get(collection).delete(key);
+  }
+
+  public removeCollection(collection: string) {
     this.data.delete(collection);
     this.transactions.delete(collection);
   }

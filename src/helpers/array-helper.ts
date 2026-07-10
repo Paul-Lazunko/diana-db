@@ -1,10 +1,15 @@
+type ComparableValue = {
+  _c: number;
+  item: any;
+}
+
 const mathCallbacksArgs: Record<'min' | 'max', any[]> = {
   max: [
-    (m: number, value: number) => Math.max(m, value),
+    (m, value) => Math.max(m, value._c),
     -Infinity,
   ],
   min: [
-    (m: number, value: number) => Math.min(m, value),
+    (m, value) => Math.min(m, value._c),
     Infinity,
   ],
 };
@@ -38,29 +43,38 @@ export function arrayEqualityCompare<T>(a: T[], b: T[]): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-export function findValueWithMode(items: any[], mode: 'min' | 'max'): number | undefined {
+export function findValueWithMode(items: any[], mode: 'min' | 'max') {
   if (!Array.isArray(items) || !items.length) {
     return;
   }
   const callbackArgs = mathCallbacksArgs[mode];
-  return items
-    .map((item: any) => {
+  const cItems =  items
+    .map((item) => {
+      let _c;
       switch (typeof item) {
         case 'bigint':
         case 'number':
-          return item as number;
+          _c = item;
+          break;
         case 'boolean':
-          return item ? 1 : 0;
+          _c = item ? 1 : 0;
+          break;
         case 'string':
           if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(item)) {
-            return new Date(item).getTime();
-          } else {
-            return item.length;
+            _c = new Date(item).getTime();
           }
+          else {
+            _c = item.length;
+          }
+          break;
         default:
+          _c = mode === 'max' ? -Infinity : Infinity;
           break;
       }
+      return { _c, item };
     })
-    .filter((value: number) => typeof value === 'number' && !Number.isNaN(value))
-    .reduce(callbackArgs[0], callbackArgs[1]);
+
+  const searchValue = cItems.reduce(callbackArgs[0], callbackArgs[1]);
+
+  return cItems.filter((cItem) => cItem._c === searchValue).map(cItem => cItem.item)
 }

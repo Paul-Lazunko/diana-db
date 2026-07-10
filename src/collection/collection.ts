@@ -393,7 +393,7 @@ export class Collection<T> {
       propertyType === Types.ARRAY
         ? this.db.Types.get((this.schema[key] as ArrayFieldDefinition).items)
         : this.db.Types.get(this.schema[key].type);
-    return type.data.get(this.name).get(key).distinct();
+    return type.data.get(this.name).get(key).distinct((this.schema[key] as NumberFieldDefinition)?.precision);
   }
 
   public max(key: string): any[] {
@@ -414,8 +414,9 @@ export class Collection<T> {
         ? this.db.Types.get((this.schema[key] as ArrayFieldDefinition).items)
         : this.db.Types.get(this.schema[key].type);
     const values = type.data.get(this.name).get(key).distinct();
-    const value = findValueWithMode(values, mode);
-    return this.find([{ [key]: { $in: [value] } }]);
+
+    const value: any[] = findValueWithMode(values, mode);
+    return this.find([{ [key]: { $in: value } }], undefined, undefined, undefined, undefined, undefined, true );
   }
 
   public find(
@@ -425,6 +426,7 @@ export class Collection<T> {
     skip?: number,
     limit?: number,
     transactionId?: string,
+    skipConversions?: boolean
   ): any[] {
     if (!filterQueries) {
       filterQueries = [{}];
@@ -442,7 +444,7 @@ export class Collection<T> {
       for (const query of filterQueries) {
         for (const key in query) {
           if (this.schema[key]?.type === Types.NUMBER) {
-            const precision = (this.schema[key] as NumberFieldDefinition)?.precision;
+            const precision = skipConversions ? 0 : (this.schema[key] as NumberFieldDefinition)?.precision;
             if (typeof query[key] === 'object') {
               for (const k in query[key]) {
                 switch (k) {

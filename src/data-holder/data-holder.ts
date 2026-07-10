@@ -16,5 +16,5 @@ export interface DataHolder {
   store: () => any;
   restore: (data: any) => void;
   hasValue: (value: any) => boolean;
-  distinct: () => any[];
+  distinct: (...args: any[]) => any[];
 }

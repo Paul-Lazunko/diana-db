@@ -33,6 +33,7 @@ export class RequestController {
     ClientActions.GET_COLLECTION_NAMES,
     ClientActions.ADD_USER,
     ClientActions.REMOVE_USER,
+    ClientActions.GET_VERSION,
   ];
   protected nonRequiredDbActions: string[] = [
     ClientActions.MIGRATE_DOWN,
@@ -42,6 +43,7 @@ export class RequestController {
     ClientActions.REMOVE_USER,
     ClientActions.GET_DATABASE_NAMES,
     ClientActions.GET_HEALTH,
+    ClientActions.GET_VERSION,
   ];
 
   constructor(options: RequestControllerOptions) {

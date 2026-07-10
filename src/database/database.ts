@@ -140,7 +140,7 @@ export class Database {
       removeTTLHandler(collection);
       const c: Collection<any> = this.collections.get(collection);
       for (const key in c.schema) {
-        this.Types.get(c.schema[key].type).removeCollectionKey(collection);
+        this.Types.get(c.schema[key].type).removeCollectionKey(collection, key);
       }
       if (this.names.has(collection)) {
         this.names.delete(collection);
@@ -184,8 +184,8 @@ export class Database {
       for (const key in c.schema) {
         if (!schema[key] && key !== '_id') {
           c.schemaUpdated[key] = Date.now();
+          this.Types.get(c.schema[key].type)?.removeCollectionKey(collection, key);
           delete c.schema[key];
-          this.Types.get(c.schema[key].type)?.removeCollectionKey(collection);
         }
       }
       for (const key in schema) {

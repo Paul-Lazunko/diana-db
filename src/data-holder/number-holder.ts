@@ -1,11 +1,11 @@
 import { DataHolderMethodsParams } from '@parameters';
 import { BaseDataHolder } from './base-data-holder';
 import { NumberFieldDefinition } from '@collection';
-import { projectIncomingValue } from '@helper';
+import { projectIncomingValue, projectOutgoingValue } from '@helper';
 
 export class NumberHolder extends BaseDataHolder<number> {
   public create(params: DataHolderMethodsParams<number>, fieldDefinition?: NumberFieldDefinition, skip = false) {
-    if (!skip && fieldDefinition) {
+    if (!skip && fieldDefinition && !Number.isNaN(params.value)) {
       params.value = projectIncomingValue(params.value, fieldDefinition?.precision);
     }
     this.checkData(params);
@@ -115,6 +115,11 @@ export class NumberHolder extends BaseDataHolder<number> {
     }
     this.remove(params);
     this.create(data, fieldDefinition, true);
+  }
+
+
+  public distinct(precision?: number): number[] {
+    return Array.from(this.rawDataKeys.keys()).map((value: number) => precision ? projectOutgoingValue(value, precision) : value);
   }
 
   protected checkData(data: DataHolderMethodsParams<number>) {}
