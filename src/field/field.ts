@@ -70,7 +70,7 @@ export class Field {
   }) {
     for (const key in data) {
       for (const k in data[key]) {
-        this.data.get(key).get(k).restore(data[key][k]);
+        this.data.get(key)?.get(k)?.restore(data[key][k]);
       }
     }
   }

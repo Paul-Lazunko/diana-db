@@ -165,7 +165,7 @@ export class RequestController {
           response.data = { collection, locked };
           break;
         case ClientActions.UNLOCK_COLLECTION_SCHEMA:
-          db.lockCollectionSchema(collection);
+          db.unlockCollectionSchema(collection);
           response.data = { collection: collection, locked: false };
           break;
         case ClientActions.REMOVE_COLLECTION:

@@ -211,9 +211,9 @@ export class Database {
               break;
             default:
               this.Types.get(schema[key].type).addCollectionKey(collection, key);
-              c.schema[key] = schema[key];
               break;
           }
+          c.schema[key] = schema[key];
         } else if (c.schema[key] && key !== '_id') {
           for (const prop in schema[key]) {
             c.schema[key][prop] = schema[key][prop];
