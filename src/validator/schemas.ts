@@ -38,6 +38,8 @@ const configurationOptions = joi.object({
   key: joi.string(),
 });
 
+const pointer = joi.string().regex(/^\$[A-Za-z]+[A-Za-z0-9_]+/);
+
 export const clientOptions = joi.object({
   port: joi.number().positive().integer().min(1025).max(65535).required(),
   host: joi.string().required(),
@@ -49,7 +51,7 @@ export const clientOptions = joi.object({
 
 const numberFieldExtended = joi.alternatives(
   joi.number(),
-  joi.string().regex(/^\$/),
+  pointer,
   joi.object({
     $add: joi.number().positive(),
     $subtract: joi.number().positive(),
@@ -61,7 +63,7 @@ const numberFieldExtended = joi.alternatives(
 
 const stringField = joi.alternatives(
   joi.string(),
-  joi.string().regex(/^\$/),
+  pointer,
   joi.object({
     $concat: joi.object({
       delimiter: joi.string().required(),
@@ -71,7 +73,7 @@ const stringField = joi.alternatives(
   }),
 );
 const objectIdField = joi.alternatives(
-  joi.string().regex(/^\$/),
+  pointer,
   joi.string().regex(/^[0-9a-f]{12}-[0-9a-f]{1,}-[0-9a-f]{11}-[0-9a-f]{9}$/),
 );
 
@@ -90,7 +92,7 @@ const unitOfTime = joi.string().valid(...Object.values(UnitOfTime));
 const timeField = joi.alternatives(
   joi.string().isoDate(),
   joi.number().positive().integer(),
-  joi.string().regex(/^\$/),
+  pointer,
   joi
     .object({
       $add: timeFieldItem,
@@ -104,7 +106,7 @@ const timeField = joi.alternatives(
 );
 const booleanField = joi.alternatives(
   joi.boolean().allow(true, false),
-  joi.string().regex(/^\$/),
+  pointer,
   joi.number().allow(0, 1)
 );
 
@@ -113,7 +115,7 @@ const geoField = joi.alternatives(
     x: joi.number().required(),
     y: joi.number().required(),
   }),
-  joi.string().regex(/^\$/),
+  pointer,
 );
 
 const arrayExtended = joi
@@ -311,9 +313,9 @@ const projectionSchema = joi
     $divide: joi.array().items(joi.string(), joi.number(), joi.any()),
     $multiply: joi.array().items(joi.string(), joi.number(), joi.any()),
     $ifNull: joi.array().items(joi.string(), joi.number(), joi.any()),
-    $max: joi.string().regex(/^\$/),
-    $min: joi.string().regex(/^\$/),
-    $avg: joi.string().regex(/^\$/),
+    $max: pointer,
+    $min: pointer,
+    $avg: pointer,
     $push: joi.any(),
     $addToSet: joi.any(),
     $concatArray: joi.string(),
