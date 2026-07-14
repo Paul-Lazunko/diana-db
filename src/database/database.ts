@@ -1,13 +1,13 @@
 import { randomUUID } from 'crypto';
 import { DianaDB } from '@application';
-import { Collection, ArrayFieldDefinition, ReferenceFieldDefinition, Schema } from '@collection';
-import { Types } from '@const';
+import { ArrayFieldDefinition, Collection, NumberFieldDefinition, ReferenceFieldDefinition, Schema } from '@collection';
+import { Types, WeekdayNumber } from '@const';
 import { ErrorFactory } from '@error';
 import { Field } from '@field';
 import { DatabaseOptions } from '@options';
 import { DataHolder } from '@data-holder';
 import { autoRollbackValidator, schemaItemValidator } from '@validator';
-import { addTTLHandler, removeTTLHandler, addStoreHandler } from '@event-emitter';
+import { addStoreHandler, addTTLHandler, removeTTLHandler } from '@event-emitter';
 import { TransformQuery } from '@dto';
 import { config } from '@config';
 
@@ -63,6 +63,14 @@ export class Database {
     }
   }
 
+  protected normalizeSchema(schema: Schema<any>) {
+    for (const property in schema) {
+      if (schema[property].type === Types.NUMBER && !(schema[property] as NumberFieldDefinition).precision) {
+        (schema[property] as NumberFieldDefinition).precision = 0;
+      }
+    }
+  }
+
   public createCollection<T>(
     collection: string,
     schema: Schema<T>,
@@ -76,6 +84,7 @@ export class Database {
       this.collections.get(collection).schema = Object.assign({ _id: { type: Types.OBJECT_ID, unique: true } }, schema);
       return this.collections.get(collection);
     } else {
+      this.normalizeSchema(schema);
       this.validateSchema(schema);
       this.collections.set(
         collection,
@@ -179,6 +188,7 @@ export class Database {
 
   public updateCollection(collection: string, schema: Schema<any>) {
     if (this.collections.has(collection)) {
+      this.normalizeSchema(schema);
       this.validateSchema(schema);
       const c: Collection<any> = this.collections.get(collection);
       for (const key in c.schema) {
