@@ -10,3 +10,4 @@ export * from './monitor';
 export * from './reactive-stream-factory';
 export * from './s3-write-stream';
 export * from './s3-read-stream';
+export * from './touch';

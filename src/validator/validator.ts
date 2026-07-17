@@ -1,7 +1,7 @@
 import { Collection, ArrayFieldDefinition, TransactionsData, Schema, NumberFieldDefinition } from '@collection';
 import { Types } from '@const';
 import { ErrorFactory } from '@error';
-import { ClientOptions, ValidatorOptions } from '@options';
+import { ValidatorOptions } from '@options';
 import {
   clientOptionsValidator,
   filterQueryValidator,

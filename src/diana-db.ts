@@ -37,6 +37,7 @@ import { storeStrategies } from '@store-strategy';
 import { logger } from '@logger';
 import { ErrorFactory } from '@error';
 import { S3Driver } from '@s3-driver';
+import { touch } from '@helper';
 
 const userStore: Datanautics = new Datanautics({});
 
@@ -186,9 +187,10 @@ if (cIdxLong !== -1 && rest[cIdxLong + 1]) {
 
 async function main() {
   try {
+    await touch(`${config.dumpDirectory}/${config.currentDumpName}`);
+    await touch(`${config.dumpDirectory}/${DEFAULT_DIANA_DB_USER_FILE_NAME}`);
 
     const envObj: Record<string, string> = parseConfig(confPath);
-
     let s3Driver: S3Driver;
 
 
@@ -202,7 +204,7 @@ async function main() {
       },
     }
 
-    if (envObj.DIANA_DB_STORE_STRATEGY === StoreStrategy.LOCAL) {
+    if (envObj.DIANA_DB_STORE_STRATEGY === StoreStrategy.S3) {
       s3Driver = new S3Driver(s3Options);
     }
 

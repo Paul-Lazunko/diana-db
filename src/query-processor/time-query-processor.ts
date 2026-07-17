@@ -30,16 +30,34 @@ export class TimeQueryProcessor {
     this.rawDataValues = Object.fromEntries(rawDataValues.entries()) as TimeQueryProcessorOptionsValues;
     this.queryProcessors = {};
     TIME_PARAMS.forEach((param: string) => {
-      if (param === 'raw') {
-        this.queryProcessors[`$${param}`] = new StringQueryProcessor({
-          rawDataKeys: this.rawDataKeys[param],
-          rawDataValues: this.rawDataValues[param],
-        });
-      } else {
-        this.queryProcessors[`$${param}`] = new NumberQueryProcessor({
-          rawDataKeys: this.rawDataKeys[param],
-          rawDataValues: this.rawDataValues[param],
-        });
+      switch (param) {
+        case 'raw':
+          this.queryProcessors[`$${param}`] = new StringQueryProcessor({
+            rawDataKeys: this.rawDataKeys[param],
+            rawDataValues: this.rawDataValues[param],
+          });
+          break;
+        case 'in':
+        case 'nin':
+        case 'eq':
+        case 'ne':
+        case 'gt':
+        case 'lt':
+        case 'gte':
+        case 'lte':
+
+          this.queryProcessors[`$${param}`] = new NumberQueryProcessor({
+            rawDataKeys: this.rawDataKeys[param],
+            rawDataValues: this.rawDataValues[param],
+          });
+
+          break
+        default:
+          this.queryProcessors[`$${param}`] = new NumberQueryProcessor({
+            rawDataKeys: this.rawDataKeys[param],
+            rawDataValues: this.rawDataValues[param],
+          });
+          break;
       }
     });
   }

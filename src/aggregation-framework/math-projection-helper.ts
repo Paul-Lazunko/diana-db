@@ -6,7 +6,7 @@ import { convertToNumeric, ensurePointer, isPointer } from '@helper';
 
 export class MathProjectionHelper extends BaseProjectionHelper {
   protected processSubQuery(item: any, valueItem: any, itemsLength?: number, currentIndex?: number) {
-    const key = objectFirstKeyHelper(valueItem);
+    const key: string = typeof valueItem === 'object' ? objectFirstKeyHelper(valueItem) : ensurePointer(valueItem.toString(), item);
     switch (key) {
       case '$ifNull':
         return this.$ifNull.apply(item, [valueItem[key]]);
@@ -91,7 +91,10 @@ export class MathProjectionHelper extends BaseProjectionHelper {
           throw ErrorFactory.transformError(`property '${valueItem}' is not valid`);
         }
         if (typeof valueItem === 'string') {
-          const intermediateValue = isPointer(valueItem) ? ensurePointer(valueItem, item) : convertToNumeric(valueItem);
+          let intermediateValue = isPointer(valueItem) ? ensurePointer(valueItem, item) : convertToNumeric(valueItem);
+          if (typeof intermediateValue === 'object') {
+            intermediateValue = this.processSubQuery(item, valueItem);
+          }
           if (typeof intermediateValue !== 'number') {
             throw ErrorFactory.transformError(`property '${valueItem}' is not a number`);
           }
@@ -285,7 +288,7 @@ export class MathProjectionHelper extends BaseProjectionHelper {
     return result;
   }
 
-  protected $round(items: any[], key: string, fraction: any, root?: any) {
+  protected $round(items: any[], key: string, fraction: number, root?: any) {
     root[key] = Math.round(items[0][key] * 10 ** fraction) / 10 ** fraction;
   }
 }

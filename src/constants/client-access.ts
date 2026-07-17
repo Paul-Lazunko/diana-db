@@ -7,10 +7,12 @@ export const clientAccess: Record<ClientActions, DatabaseAccess> = {
   [ClientActions.FIND_BY_VIEW]: DatabaseAccess.READ,
   [ClientActions.COUNT_BY_VIEW]: DatabaseAccess.READ,
   [ClientActions.ADD_COLLECTION]: DatabaseAccess.WRITE,
+  [ClientActions.CREATE_COLLECTION]: DatabaseAccess.WRITE,
   [ClientActions.ADD_USER]: DatabaseAccess.RESTRICTED,
   [ClientActions.COMMIT_TRANSACTION]: DatabaseAccess.WRITE, //
   [ClientActions.COUNT]: DatabaseAccess.READ,
   [ClientActions.CREATE_DATABASE]: DatabaseAccess.MODIFY,
+  [ClientActions.REMOVE_DATABASE]: DatabaseAccess.MODIFY,
   [ClientActions.DISTINCT]: DatabaseAccess.READ,
   [ClientActions.FIND]: DatabaseAccess.READ,
   [ClientActions.GET_COLLECTION_NAMES]: DatabaseAccess.READ, //

@@ -1,9 +1,8 @@
 import { EventEmitter } from 'events';
 import { STORE_EE_EVENT_NAME, STORE_EE_EVENT_TIMER } from '@const';
 import { store } from '@store';
-import { createWriteStream } from 'fs';
 import { config } from '@config';
-import { AbstractStoreStrategy, storeStrategies } from '@store-strategy';
+import { storeStrategies } from '@store-strategy';
 import { logger } from '@logger';
 import { ErrorFactory } from '@error';
 
@@ -41,12 +40,12 @@ storeEventEmitter.on(STORE_EE_EVENT_NAME, async () => {
     case 's3':
       await storeStrategies.s3.store(store, config.currentDumpName).catch((e: Error) => {
         logger.error(ErrorFactory.storeError(e.message))
-      });;
+      });
       break;
     case 'local':
       await storeStrategies.local.store(store, `${config.dumpDirectory}/${config.currentDumpName}`).catch((e: Error) => {
         logger.error(ErrorFactory.storeError(e.message))
-      });;
+      });
       break;
   }
   setTimeout(() => {

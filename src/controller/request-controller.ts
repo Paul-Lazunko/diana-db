@@ -31,8 +31,12 @@ export class RequestController {
     ClientActions.COMMIT_TRANSACTION,
     ClientActions.ROLLBACK_TRANSACTION,
     ClientActions.GET_COLLECTION_NAMES,
+    ClientActions.CREATE_DATABASE,
+    ClientActions.REMOVE_DATABASE,
+    ClientActions.GET_COLLECTION_NAMES,
     ClientActions.ADD_USER,
     ClientActions.REMOVE_USER,
+    ClientActions.GRANT_ACCESS,
     ClientActions.GET_VERSION,
   ];
   protected nonRequiredDbActions: string[] = [
@@ -106,6 +110,8 @@ export class RequestController {
           );
         }
       }
+      const dbExists: boolean = database && this.databases.has(database);
+
       switch (action) {
         case ClientActions.GET_VERSION:
           response.data = { version: VERSION };
@@ -115,6 +121,19 @@ export class RequestController {
           break;
         case ClientActions.GET_DATABASE_NAMES:
           response.data = this.getDatabases(user);
+          break;
+        case ClientActions.CREATE_DATABASE:
+          if (!dbExists) {
+            this.databases.set(database, new Database({ name: database, dianaDB: this.dianaDB }));
+            userStore.set(`user.${user}.db.${database}`, DatabaseAccess.MODIFY);
+          }
+          response.data = { database, action: 'created' };
+          break;
+        case ClientActions.REMOVE_DATABASE:
+          if (dbExists) {
+            this.databases.delete(database);
+          }
+          response.data = { database, action: 'removed' };
           break;
         case ClientActions.GET_MIGRATIONS:
           response.data = Object.keys(this.dianaDB.migrations);
@@ -142,6 +161,7 @@ export class RequestController {
           response.data = { view, action: 'removed' };
           break;
         case ClientActions.ADD_COLLECTION:
+        case ClientActions.CREATE_COLLECTION:
           db.createCollection(collection, schema);
           response.data = { collection, action: 'created' };
           break;

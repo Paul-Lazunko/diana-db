@@ -115,7 +115,7 @@ export class BaseDataHolder<T> implements DataHolder {
     return this.queryProcessor.processQuery(query);
   }
 
-  public get(identifiers: string[]) {
+  public get(identifiers: string[], precision?: number) {
     const result: { [key: string]: T | T[] } = {};
     for (const identifier of identifiers) {
       if (this.rawDataValues.has(identifier)) {

@@ -152,6 +152,7 @@ export class Collection<T> {
     this.transactionsTimers.set(
       transactionId,
       setTimeout(() => {
+        this.removeLocks(transactionId);
         this.clearTransactionTimer(transactionId);
         this.removeTransactionData(transactionId);
       }, ttl),
@@ -159,9 +160,9 @@ export class Collection<T> {
   }
 
   public rollBackTransaction(transactionId: string) {
+    this.removeLocks(transactionId);
     this.clearTransactionTimer(transactionId);
     this.removeTransactionData(transactionId);
-    this.removeLocks(transactionId);
   }
 
   protected clearTransactionTimer(transactionId: string) {
@@ -201,25 +202,25 @@ export class Collection<T> {
               type = this.db.Types.get((this.schema[key] as ArrayFieldDefinition).items);
               dataHolder = type.data;
               transactionHolder = type.transactions;
-              data = transactionHolder.get(this.name).get(key).get(transactionId).get([inserted[i]]);
-
+              data = transactionHolder.get(this.name).get(key).get(transactionId).get([inserted[i]], (this.schema[key] as NumberFieldDefinition).precision);
               dataHolder.get(this.name).get(key).create({
-                identifier: inserted[i],
-
-                value: data[inserted[i]],
-              });
+                  identifier: inserted[i],
+                  value: data[inserted[i]],
+                },
+                this.schema[key] as NumberFieldDefinition
+                );
               break;
             default:
               type = this.db.Types.get(this.schema[key]?.type);
               dataHolder = type.data;
               transactionHolder = type.transactions;
-              data = transactionHolder.get(this.name).get(key).get(transactionId).get([inserted[i]]);
-
+              data = transactionHolder.get(this.name).get(key).get(transactionId).get([inserted[i]], (this.schema[key] as NumberFieldDefinition).precision);
               dataHolder.get(this.name).get(key).create({
-                identifier: inserted[i],
-
-                value: data[inserted[i]],
-              });
+                  identifier: inserted[i],
+                  value: data[inserted[i]],
+                },
+                this.schema[key] as NumberFieldDefinition
+              );
               break;
           }
         }
@@ -253,6 +254,8 @@ export class Collection<T> {
             },
           ],
           setData,
+          undefined,
+          true
         );
       });
     }
@@ -322,7 +325,7 @@ export class Collection<T> {
     }
   }
 
-  public insert(data: any, transactionId?: string): any {
+  public insert(data: any, transactionId?: string, skip?: boolean): any {
     const _id = objectIdHelper();
     this.validate.data(data, false);
     this.validateData(data, transactionId);
@@ -349,25 +352,23 @@ export class Collection<T> {
             dataHolder.create({
               identifier: result._id,
               value: data[key][i],
-            });
+            }, this.schema[key] as NumberFieldDefinition);
           }
           result[key] = data[key];
           break;
         default:
-          let value = data[key];
-          if (propertyType === Types.NUMBER) {
-            const { precision } = this.schema[key] as NumberFieldDefinition;
-            value = projectIncomingValue(value, precision);
-          }
+          const value = data[key];
           type = this.db.Types.get(this.schema[key].type);
           dataHolder = transactionExists
             ? type.transactions.get(this.name).get(key).get(transactionId)
             : type.data.get(this.name).get(key);
 
           dataHolder.create({
-            identifier: result._id,
-            value,
-          });
+              identifier: result._id,
+              value,
+            },
+            this.schema[key] as NumberFieldDefinition,
+          );
           result[key] = data[key];
           break;
       }
@@ -590,7 +591,7 @@ export class Collection<T> {
     return (result && result[0] && result[0].count) || 0;
   }
 
-  public update(filterQueries: FindQuery[], updateData: UpdateData<any>, transactionId?: string): UpdateResult {
+  public update(filterQueries: FindQuery[], updateData: UpdateData<any>, transactionId?: string, skipCheckLocks?: boolean): UpdateResult {
     this.validate.filterQueries(filterQueries);
     this.validateData(updateData, transactionId, true);
     this.validate.data(updateData, true);
@@ -600,8 +601,10 @@ export class Collection<T> {
       executionTime: Date.now(),
     };
     const items: any[] = this.find(filterQueries, [], null, null, null, transactionId);
-    this.checkLocks(items, transactionId || '');
-    if(transactionId) {
+    if (!skipCheckLocks) {
+      this.checkLocks(items, transactionId || '');
+    }
+    if (transactionId) {
       this.setLocks(items, transactionId);
     }
     result.found = items.length;
@@ -647,6 +650,7 @@ export class Collection<T> {
                       value: evaluatedValue,
                     },
                     this.schema[key] as NumberFieldDefinition,
+                    true
                   )
               : type.data
                   .get(this.name)
@@ -658,6 +662,7 @@ export class Collection<T> {
                       value: evaluatedValue,
                     },
                     this.schema[key] as NumberFieldDefinition,
+                    skipCheckLocks
                   );
           }
           isUpdated = true;
@@ -774,9 +779,9 @@ export class Collection<T> {
         propertyType === Types.ARRAY
           ? this.db.Types.get((this.schema[key] as ArrayFieldDefinition).items)
           : this.db.Types.get(this.schema[key].type);
-      data[key] = type.data.get(this.name).get(key).get(base);
+      data[key] = type.data.get(this.name).get(key).get(base, (this.schema[key] as any).precision);
       if (transaction && transactionId) {
-        transactionsData[key] = type.transactions.get(this.name).get(key).get(transactionId).get(transaction);
+        transactionsData[key] = type.transactions.get(this.name).get(key).get(transactionId).get(transaction, (this.schema[key] as any).precision);
       }
     }
     for (const _id of base) {
@@ -840,7 +845,6 @@ export class Collection<T> {
     if (transformQueries) {
       result = this.aggregationFrameWork.aggregate(result, transformQueries);
     }
-
     if (sortQuery) {
       const keys: string[] = Object.keys(sortQuery);
       for (let i = 0; i < keys.length; i = i + 1) {
@@ -848,11 +852,34 @@ export class Collection<T> {
         const previousKey: string = keys[i - 1];
         result.sort((a: any, b: any) => {
           if (i === 0 || a[previousKey] === b[previousKey]) {
-            const compareResult: boolean = a[key] > b[key];
-            if (sortQuery[key] === -1) {
-              return compareResult ? -1 : 1;
+            let compareResult: number;
+            switch(this.schema[key]?.type) {
+              case Types.TIME:
+                compareResult = Math.sign(new Date(a[key]).getTime() - new Date(b[key]).getTime());
+                break;
+              case Types.OBJECT_ID:
+              case Types.REFERENCE:
+                compareResult = Math.sign(parseInt(a[key].split('-')[2], 16) - parseInt(b[key].split('-')[2], 16))
+                break;
+              case Types.STRING:
+                compareResult = a[key].localeCompare(b[key]);
+                break;
+              case Types.NUMBER:
+                compareResult =  Math.sign(a[key] - b[key]);
+                break;
+              case Types.ARRAY:
+                compareResult =  Math.sign(a.length - b.length);
+                break;
+              case Types.BOOLEAN:
+                compareResult =  a ? b ? 0 : 1 : b ? -1 : 0;
+                break;
+              default:
+                return 0;
             }
-            return compareResult ? 1 : -1;
+            if (sortQuery[key] === -1) {
+              return compareResult * -1
+            }
+            return compareResult
           }
         });
       }
@@ -863,15 +890,6 @@ export class Collection<T> {
     if (limit) {
       result = result.slice(0, limit > result.length ? result.length : limit);
     }
-
-    result = result.map((item: any) => {
-      for (const key in item) {
-        if (this.schema[key]?.type === Types.NUMBER) {
-          item[key] = projectOutgoingValue(item[key], (this.schema[key] as NumberFieldDefinition).precision);
-        }
-      }
-      return item;
-    });
 
     return result;
   }
@@ -930,7 +948,7 @@ export class Collection<T> {
       .filter((id: string) => this.transactionsLocks.has(id) && this.transactionsLocks.get(id) !== transactionId);
 
     if (lockedItems.length) {
-      throw ErrorFactory.lockError(`some items are locked by transactions`)
+      throw ErrorFactory.lockError(`some of requested documents are locked by transactions`);
     }
   }
 
@@ -944,13 +962,20 @@ export class Collection<T> {
       this.transactionsLocks.set(id, transactionId);
       revisedIds.push(id);
     }
-    this.transactionsLocksGroups.set(transactionId, revisedIds);
+    if (this.transactionsLocksGroups.has(transactionId)) {
+      const existing = this.transactionsLocksGroups.get(transactionId);
+      this.transactionsLocksGroups.set(transactionId, [...existing, ...revisedIds]);
+    } else {
+      this.transactionsLocksGroups.set(transactionId, revisedIds);
+    }
   }
 
   protected removeLocks(transactionId) {
     const ids = this.transactionsLocksGroups.get(transactionId);
-    for (const id of ids) {
-      this.transactionsLocks.delete(id);
+    if (Array.isArray(ids)) {
+      for (const id of ids) {
+        this.transactionsLocks.delete(id);
+      }
     }
     this.transactionsLocksGroups.delete(transactionId);
   }

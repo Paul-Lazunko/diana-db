@@ -32,10 +32,10 @@ export class AggregationFramework {
           this.$sort(result, transformQueries[i][key]);
           break;
         case '$skip':
-          this.$skip(result, transformQueries[i][key]);
+          result = this.$skip(result, transformQueries[i][key]);
           break;
         case '$limit':
-          this.$limit(result, transformQueries[i][key]);
+          result = this.$limit(result, transformQueries[i][key]);
           break;
         case '$project':
           result = this.$project(result, transformQueries[i][key]);
@@ -87,23 +87,24 @@ export class AggregationFramework {
       this.$sort(item[as], options.sort);
     }
     if (options.skip) {
-      this.$skip(item[as], options.skip);
+      item[as] = this.$skip(item[as], options.skip);
     }
     if (options.limit) {
-      this.$limit(item[as], options.limit);
+      item[as] = this.$limit(item[as], options.limit);
     }
     return item;
   }
 
   protected $unwind(item: any, field: string) {
     const items: any[] = [];
-    if (!Array.isArray(item[field])) {
-      throw ErrorFactory.transformError(`property '${field}' should be an array`);
+    const key = field.replace(/^\$/, '')
+    if (!Array.isArray(item[key])) {
+      throw ErrorFactory.transformError(`property '${key}' should be an array`);
     }
-    if (item[field].length > 0) {
-      for (let i = 0; i < item[field].length; i = i + 1) {
+    if (item[key].length > 0) {
+      for (let i = 0; i < item[key].length; i = i + 1) {
         const _item: any = Object.assign({}, item);
-        _item[field] = item[field][i];
+        _item[key] = item[key][i];
         items.push(_item);
       }
     }
@@ -111,7 +112,7 @@ export class AggregationFramework {
   }
 
   protected $replaceRoot(item: any, newRoot: string) {
-    return item[newRoot];
+    return item[newRoot.replace(/^\$/, '')];
   }
 
   protected $sort(items: any, sorting: Sorting) {
@@ -132,11 +133,11 @@ export class AggregationFramework {
   }
 
   protected $skip(items: any[], skip: number) {
-    items.slice(skip, items.length);
+    return items.slice(skip, items.length);
   }
 
   protected $limit(items: any[], limit: number) {
-    items.slice(0, limit > items.length ? items.length : limit);
+    return items.slice(0, limit > items.length ? items.length : limit);
   }
 
   protected $group(items: any[], options: any) {

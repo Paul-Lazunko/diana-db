@@ -27,7 +27,7 @@ while (pid.length < 4) {
 }
 
 export function objectIdHelper(): string {
-  const ts: string = Math.round(Date.now()).toString(16);
+  const ts: string = Date.now().toString(16);
   let rnd: string = '';
   while (rnd.length < 9) {
     rnd += base.charAt(Math.floor(Math.random() * base.length));

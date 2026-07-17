@@ -17,6 +17,7 @@ import { userStore } from '@user-store';
 import { monitorEventEmitter } from '../event-emitter/monitor-event-emitter';
 import { restoreStrategies } from '@restore-strategy';
 import { Readable } from 'stream';
+import { touch } from '@helper';
 
 const signals = [
   'SIGINT',
@@ -106,6 +107,8 @@ export class DianaDB {
   protected async restore() {
     switch (config.storeStrategy) {
       case StoreStrategy.LOCAL:
+        await touch(`${config.dumpDirectory}/${config.currentDumpName}`);
+        await touch(`${config.dumpDirectory}/${DEFAULT_DIANA_DB_USER_FILE_NAME}`);
         await restoreStrategies.local.restore(store, `${config.dumpDirectory}/${config.currentDumpName}`);
         break;
       case StoreStrategy.S3:

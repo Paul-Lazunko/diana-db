@@ -149,11 +149,12 @@ export class Database {
       removeTTLHandler(collection);
       const c: Collection<any> = this.collections.get(collection);
       for (const key in c.schema) {
-        this.Types.get(c.schema[key].type).removeCollectionKey(collection, key);
+        this.Types.get(c.schema[key].type)?.removeCollectionKey(collection, key);
       }
       if (this.names.has(collection)) {
         this.names.delete(collection);
       }
+      this.collections.delete(collection)
     }
   }
 

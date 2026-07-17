@@ -7,6 +7,11 @@ export function convertPointerToKey(pointer: string): string {
   return pointer.replace(/^\$/, '');
 }
 
+
+export function isPointer(pointer: string) {
+  return typeof pointer === 'string' && pointer.startsWith(POINTER_PREFIX);
+}
+
 export function ensurePointer<T extends object>(pointer: any, source: T): T[keyof T] | any {
   if (isPointer(pointer)) {
     const key = pointer.replace(/^\$/, '');
@@ -15,6 +20,3 @@ export function ensurePointer<T extends object>(pointer: any, source: T): T[keyo
   return pointer;
 }
 
-export function isPointer(pointer: string) {
-  return typeof pointer === 'string' && pointer.startsWith(POINTER_PREFIX);
-}
