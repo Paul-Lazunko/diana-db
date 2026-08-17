@@ -31,7 +31,7 @@ export const config: Record<string, any> = {
   backupName: process.env.DIANA_DB_BACKUP_NAME || DEFAULT_DIANA_DB_BACKUP_NAME,
   transactionsMinAutoRollBackValue: data.DIANA_DB_TRANSACTION_AUTOROLLBACK_MIN || 1000,
   transactionsMaxAutoRollBackValue: data.DIANA_DB_TRANSACTION_AUTOROLLBACK_MAX || 60000,
-  logger: process.env.DIANA_DB_LOGGER || 'console',
+  logger: process.env.DIANA_DB_LOGGER || 'winston',
   storeStrategy: process.env.DIANA_DB_STORE_STRATEGY || 'local',
   s3: {
     bucket: process.env.DIANA_DB_STORE_S3_BUCKET,

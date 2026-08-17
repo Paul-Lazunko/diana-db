@@ -5,7 +5,7 @@ import { LookupQuery, Sorting } from '@dto';
 import { MatchHelper } from './match-helper';
 import { ProjectionHelper } from './projection-helper';
 import { objectFirstKeyHelper } from './object-first-key-helper';
-import { convertPointerToKey, evaluatePointer, isPointer } from '@helper';
+import { ensurePointerData, evaluatePointer, isPointer } from '@helper';
 
 export class AggregationFramework {
   protected collection: Collection<any>;
@@ -69,10 +69,12 @@ export class AggregationFramework {
   }
 
   protected $lookup(item: any, options: LookupQuery): any {
-    const { collection, database, as, foreignField, localField, filter } = options;
-    if (database && !this.collection.db.dianaDB.databases.has(database)) {
+    const { collection, database, as, foreignField, localField, filter} = options;
+    if (database && !this.collection.db.dianaDB.databases.has(database) ) {
       throw ErrorFactory.databaseError(`database ${database} doesn't exist`);
     } else if (!database && !this.collection.db.collections.has(collection)) {
+      throw ErrorFactory.databaseError(`collection ${collection} doesn't exist`);
+    } else if (database && this.collection.db.dianaDB.databases.has(database) && !this.collection.db.dianaDB.databases.get(database).collections.has(collection) ){
       throw ErrorFactory.databaseError(`collection ${collection} doesn't exist`);
     }
     const filterQuery: any = {};
@@ -91,6 +93,11 @@ export class AggregationFramework {
     }
     if (options.limit) {
       item[as] = this.$limit(item[as], options.limit);
+    }
+    if (options.replaceRoot && isPointer(options.replaceRoot)) {
+      item[as] = item[as]
+        .map((element: any) => ensurePointerData(options.replaceRoot, element))
+        .filter((element: any) => Boolean(element));
     }
     return item;
   }
@@ -180,6 +187,9 @@ export class AggregationFramework {
   }
 
   protected $match(items: any[], matchQuery: any) {
+    if (typeof matchQuery !== 'object' ) {
+      matchQuery = { $eq: matchQuery }
+    }
     for (const key in matchQuery) {
       const method: string = Object.keys(matchQuery[key])[0];
       items = this.matchHelper[method](items, key, matchQuery[key][method]);

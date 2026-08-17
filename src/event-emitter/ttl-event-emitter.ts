@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import { TTL_EE_EVENT_NAME, TTL_EE_EVENT_TIMER } from '@const';
+import { logger } from '@logger';
 
 const ttlEventEmitter: EventEmitter = new EventEmitter();
 const handlers: Map<string, any> = new Map<string, any>();

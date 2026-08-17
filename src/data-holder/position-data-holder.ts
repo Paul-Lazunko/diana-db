@@ -2,8 +2,10 @@ import { DataHolderMethodsParams } from '@parameters';
 import { PositionQueryProcessor } from '@query-processor';
 import { Point, FindQuery } from '@dto';
 import { DataHolder, PointDataHolderStorePart } from './index';
+import { Types } from '@const';
 
 export class PositionDataHolder implements DataHolder {
+  protected type: Types = Types.POSITION;
   protected queryProcessorConstructor: PositionQueryProcessor;
   protected queryProcessor: PositionQueryProcessor;
   protected data: Map<string, Point>;

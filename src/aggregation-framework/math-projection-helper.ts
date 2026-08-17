@@ -87,7 +87,7 @@ export class MathProjectionHelper extends BaseProjectionHelper {
       const _value = Object.assign([], value);
       while (_value.length) {
         const valueItem: any = _value.shift();
-        if (!valueItem) {
+        if (!valueItem && valueItem !== 0) {
           throw ErrorFactory.transformError(`property '${valueItem}' is not valid`);
         }
         if (typeof valueItem === 'string') {
@@ -122,7 +122,7 @@ export class MathProjectionHelper extends BaseProjectionHelper {
       const _value = Object.assign([], value);
       while (_value.length) {
         const valueItem: any = _value.shift();
-        if (!valueItem) {
+        if (!valueItem && valueItem !== 0) {
           throw ErrorFactory.transformError(`property '${valueItem}' is not valid`);
         }
         if (typeof valueItem === 'string') {
@@ -191,7 +191,7 @@ export class MathProjectionHelper extends BaseProjectionHelper {
       const _value = Object.assign([], value);
       while (_value.length) {
         const valueItem: any = _value.shift();
-        if (!valueItem) {
+        if (!valueItem && valueItem !== 0) {
           throw ErrorFactory.transformError(`property '${valueItem}' is not valid`);
         }
         if (typeof valueItem === 'string') {

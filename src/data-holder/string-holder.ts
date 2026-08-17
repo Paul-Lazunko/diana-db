@@ -1,7 +1,10 @@
 import { BaseDataHolder } from './base-data-holder';
 import { DataHolderMethodsParams } from '@parameters';
+import { Types } from '@const';
 
 export class StringHolder extends BaseDataHolder<string> {
+  protected type: Types = Types.STRING;
+
   public update(params: DataHolderMethodsParams<string>, data: DataHolderMethodsParams<string>) {
     if (data.value && typeof data.value === 'object') {
       const oldValue = this.rawDataValues.get(data.identifier);
@@ -47,10 +50,10 @@ export class StringHolder extends BaseDataHolder<string> {
             break;
           case '$concat':
             if (Array.isArray(oldValue)) {
-              data.value = oldValue.map((v: string) => v + data.value[action]);
+              data.value = oldValue.map((v: string) => v + data.value[action].delimiter + data.value[action].parts.join(data.value[action].delimiter));
             } else {
               if (oldValue) {
-                data.value = oldValue + data.value[action];
+                data.value = oldValue + data.value[action].delimiter + data.value[action].parts.join(data.value[action].delimiter);
               } else {
                 data.value = data.value[action];
               }

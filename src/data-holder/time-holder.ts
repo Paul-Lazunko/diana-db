@@ -3,9 +3,10 @@ import { TimeFindQuery, UpdateTimeHolderItem } from '@dto';
 import { TimeQueryProcessor } from '@query-processor';
 import { addUnitOfTime, getDayOfYear, getWeek, toEndOf, toLastWeekday, toNextWeekday, toStartOf } from '@helper';
 import { TimeParams, DataHolderMethodsParams } from '@parameters';
-import { TIME_PARAMS } from '@const';
+import { TIME_PARAMS, Types } from '@const';
 
 export class TimeHolder implements DataHolder {
+  protected type: Types = Types.TIME;
   private identifiersMap: Map<string, Map<string, number | string>>;
   private year: Map<number, string[]>;
   private month: Map<number, string[]>;
@@ -89,6 +90,7 @@ export class TimeHolder implements DataHolder {
   }
 
   protected processDate(dateString: string | number): TimeParams {
+
     const processedValue = new Date(dateString);
     const year: number = processedValue.getFullYear();
     const month: number = processedValue.getMonth();
@@ -135,19 +137,17 @@ export class TimeHolder implements DataHolder {
   }
 
   remove(params: DataHolderMethodsParams<string>) {
-    const { identifier, value } = params;
+    const { identifier } = params;
     this.identifiers.delete(identifier);
     TIME_PARAMS.forEach((param: string) => {
       const keys = this[param].keys();
       let value: any = true;
       while (value) {
         value = keys.next().value;
-
         const data = this[param].get(value);
-        if (Array.isArray(data)) {
+        if (Array.isArray(data) && data.includes(identifier)) {
           data.splice(data.indexOf(identifier), 1);
         }
-
         this.identifiersMap.get(param).delete(identifier);
       }
     });

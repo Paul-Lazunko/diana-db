@@ -4,9 +4,10 @@ import { BaseDataHolderStorePart, DataHolder } from './index';
 import { DataHolderMethodsParams } from '@parameters';
 import { BaseQueryProcessor } from '@query-processor';
 import { NumberFieldDefinition } from '@collection';
+import { Types } from '@const';
 
 export class BaseDataHolder<T> implements DataHolder {
-  protected isBooleanHolder: boolean = false;
+  protected type: Types;
   protected database: Database;
   protected rawDataValues: Map<string, T | T[]>;
   protected rawDataKeys: Map<T, string[]>;
@@ -136,10 +137,14 @@ export class BaseDataHolder<T> implements DataHolder {
       identifiers: this.identifiers,
     };
     this.rawDataValues.forEach((value: T, key: string) => {
-      result.rawDataValues[key.toString()] = value;
+      if (key !== undefined && value !== undefined) {
+        result.rawDataValues[key.toString()] = value;
+      }
     });
     this.rawDataKeys.forEach((value: any, key: T) => {
-      result.rawDataKeys[key.toString()] = value;
+      if (key !== undefined && value !== undefined) {
+        result.rawDataKeys[key.toString()] = value;
+      }
     });
     return result;
   }
@@ -151,19 +156,23 @@ export class BaseDataHolder<T> implements DataHolder {
     }
     for (const key in rawDataKeys) {
       let k: any = key.trim();
-      if (/^(true|false)$/.test(k)) {
+      if (this.type === Types.BOOLEAN && /^(true|false)$/.test(k)) {
         k = k === 'true';
-      } else if (/^(\d+)$/.test(k)) {
+      } else if (this.type === Types.NUMBER && /^(\d+)$/.test(k)) {
         k = parseInt(k, 10);
+      } else if (this.type === Types.REFERENCE && /^undefined$/.test(k)) {
+        continue;
       }
       this.rawDataKeys.set(k, rawDataKeys[key]);
     }
     for (const key in rawDataValues) {
       let k: any = `${key}`;
-      if (/^(true|false)$/.test(key)) {
+      if (this.type === Types.BOOLEAN && /^(true|false)$/.test(key)) {
         k = key === 'true';
-      } else if (/^(\d+)$/.test(key)) {
+      } else if (this.type === Types.NUMBER && /^(\d+)$/.test(key)) {
         k = parseInt(key.toString(), 10);
+      } else if (this.type === Types.REFERENCE && /^undefined$/.test(key)) {
+        continue;
       }
       this.rawDataValues.set(key, rawDataValues[key]);
     }

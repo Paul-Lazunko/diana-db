@@ -1,5 +1,3 @@
-import joi from 'joi';
-
 export type QueryOperands<T> = {
   $eq?: T;
   $ne?: T;

@@ -29,6 +29,7 @@ import {
 import { TransformQuery } from '@dto';
 import { ErrorFactory } from '@error';
 import { triggerEventNamesExtractor } from '../helpers/trigger-event-names-extractor';
+import { logger } from '@logger';
 
 export class Collection<T> {
   public db: Database;
@@ -112,7 +113,11 @@ export class Collection<T> {
         if (!this.viewTriggerEventHandlersStates[name]) {
           this.viewTriggerEventHandlersStates[name] = true;
           setTimeout(() => {
-            this.constructViewItems(name);
+            try {
+              this.constructViewItems(name);
+            } catch(e) {
+              logger.error(e);
+            }
             this.viewTriggerEventHandlersStates[name] = false;
           }, 0);
         }
@@ -120,7 +125,11 @@ export class Collection<T> {
       viewEventEmitter.on(event, this.viewTriggerEventHandlers[name]);
     }
     setTimeout(() => {
-      this.constructViewItems(name);
+      try {
+        this.constructViewItems(name);
+      } catch (e) {
+        logger.error(e);
+      }
     }, 0);
   }
 
@@ -152,9 +161,13 @@ export class Collection<T> {
     this.transactionsTimers.set(
       transactionId,
       setTimeout(() => {
-        this.removeLocks(transactionId);
-        this.clearTransactionTimer(transactionId);
-        this.removeTransactionData(transactionId);
+        try {
+          this.removeLocks(transactionId);
+          this.clearTransactionTimer(transactionId);
+          this.removeTransactionData(transactionId);
+        } catch(e) {
+          logger.error(e);
+        }
       }, ttl),
     );
   }
@@ -338,6 +351,9 @@ export class Collection<T> {
       this.identifiers.add(result._id);
     }
     for (const key in this.schema) {
+      if (data[key] === undefined) {
+        continue;
+      }
       const propertyType: Types = this.schema[key].type;
       let type: Field;
       let dataHolder: DataHolder;

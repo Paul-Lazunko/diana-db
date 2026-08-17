@@ -40,7 +40,7 @@ export class Validator {
                 break;
               case Types.REFERENCE:
               case Types.OBJECT_ID:
-                validationResult = objectIdQuery.string(filterQuery[key]);
+                validationResult = filterQueryValidator.objectId(filterQuery[key]);
                 break;
               case Types.NUMBER:
                 validationResult = filterQueryValidator.number(filterQuery[key]);

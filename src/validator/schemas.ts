@@ -216,6 +216,7 @@ const timeQuery = joi
   .object({
     $year: numberQuery,
     $month: numberQuery,
+    $week: numberQuery,
     $date: numberQuery,
     $hours: numberQuery,
     $minutes: numberQuery,
@@ -268,9 +269,9 @@ const schemaItem = joi
         is: Types.NUMBER,
         then: joi.number().positive().integer().allow(0).min(0).max(8).required(),
       })
-      .when('type', {
-        not: Types.NUMBER,
-        then: joi.forbidden(),
+      .when('items', {
+        is: Types.NUMBER,
+        then: joi.number().positive().integer().allow(0).min(0).max(8).required(),
       }),
     reference: joi
       .when('type', {
@@ -298,10 +299,10 @@ const schemaItem = joi
         is: Types.REFERENCE,
         then: joi.boolean(),
       })
-      .when('type', {
-        not: Types.REFERENCE,
-        then: joi.forbidden(),
-      }),
+      .when('items', {
+        is: Types.REFERENCE,
+        then: joi.boolean(),
+      })
   })
   .oxor('lowercase', 'uppercase')
   .min(1);
@@ -349,11 +350,12 @@ const transformQueries = joi.array().items(
         localField: joi.string().required(),
         foreignField: joi.string().required(),
         filter: joi.any(),
+        replaceRoot: pointer,
         sort: joi.object().pattern(/^/, joi.number().integer().allow(-1, 1)).min(1),
         skip: joi.number().positive().integer().allow(0),
         limit: joi.number().positive().integer(),
       }),
-      $match: joi.object().pattern(/^/, joi.alternatives(booleanQuery, stringQuery, numberQuery, timeQuery, geoQuery)),
+      $match: joi.object().pattern(/^/, joi.alternatives(booleanQuery, stringQuery, numberQuery, timeQuery, geoQuery, objectIdQuery)),
       $sort: joi.object().pattern(/^/, joi.number().integer().allow(-1, 1)).min(1),
       $unwind: pointer,
       $replaceRoot: pointer,

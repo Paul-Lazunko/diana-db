@@ -2,8 +2,10 @@ import { Database } from '@database';
 import { FindQuery, ReferenceQuery } from '@dto';
 import { DataHolder, ReferenceHolderStorePart } from './index';
 import { DataHolderMethodsParams } from '@parameters';
+import { Types } from '@const';
 
 export class ReferenceHolder implements DataHolder {
+  protected type: Types = Types.REFERENCE;
   protected database: Database;
   protected reference: string;
   protected references: Map<string, string | string[]>;
@@ -30,7 +32,7 @@ export class ReferenceHolder implements DataHolder {
     this.reference = reference;
     const options: any = {};
     options[key] = collection;
-    this.database.collections.get(this.reference).initRefs(this.referencesInverted, this.references, options);
+    this.database.collections.get(this.reference)?.initRefs(this.referencesInverted, this.references, options);
   }
 
   createCursor(findQuery: FindQuery): string[] {
@@ -126,9 +128,11 @@ export class ReferenceHolder implements DataHolder {
     };
     this.references.forEach((v: string | string[], k: string) => {
       result.references[k] = v;
+
     });
     this.referencesInverted.forEach((v: string | string[], k: string) => {
       result.referencesInverted[k] = v;
+
     });
     return result;
   }
@@ -138,9 +142,11 @@ export class ReferenceHolder implements DataHolder {
     this.reference = reference;
     for (const key in referencesInverted) {
       this.referencesInverted.set(key, referencesInverted[key]);
+
     }
     for (const key in references) {
       this.references.set(key, references[key]);
+
     }
   }
 }

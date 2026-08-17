@@ -20,3 +20,10 @@ export function ensurePointer<T extends object>(pointer: any, source: T): T[keyo
   return pointer;
 }
 
+export function ensurePointerData<T extends object>(pointer: any, source: T): T[keyof T] | any {
+  if (isPointer(pointer)) {
+    const key = pointer.replace(/^\$/, '');
+    return key in source ? source[key] : undefined;
+  }
+}
+

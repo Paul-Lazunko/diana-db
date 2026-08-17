@@ -190,7 +190,7 @@ export class RequestController {
           break;
         case ClientActions.REMOVE_COLLECTION:
           db.removeCollection(collection);
-          response.data = { collection };
+          response.data = { collection, action: 'removed' };
           break;
         case ClientActions.GET_COLLECTION_NAMES:
           response.data = db.getCollectionNames();

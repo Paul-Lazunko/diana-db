@@ -9,6 +9,7 @@ export type LookupQuery = {
   foreignField: string;
   filter: FindQuery;
   sort: Sorting;
+  replaceRoot?: string;
   skip: number;
   limit: number;
 };
