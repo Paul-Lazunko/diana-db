@@ -45,13 +45,12 @@ export class TimeQueryProcessor {
         case 'lt':
         case 'gte':
         case 'lte':
-
           this.queryProcessors[`$${param}`] = new NumberQueryProcessor({
             rawDataKeys: this.rawDataKeys[param],
             rawDataValues: this.rawDataValues[param],
           });
 
-          break
+          break;
         default:
           this.queryProcessors[`$${param}`] = new NumberQueryProcessor({
             rawDataKeys: this.rawDataKeys[param],

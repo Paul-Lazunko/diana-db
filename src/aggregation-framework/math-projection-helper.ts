@@ -6,7 +6,8 @@ import { convertToNumeric, ensurePointer, isPointer } from '@helper';
 
 export class MathProjectionHelper extends BaseProjectionHelper {
   protected processSubQuery(item: any, valueItem: any, itemsLength?: number, currentIndex?: number) {
-    const key: string = typeof valueItem === 'object' ? objectFirstKeyHelper(valueItem) : ensurePointer(valueItem.toString(), item);
+    const key: string =
+      typeof valueItem === 'object' ? objectFirstKeyHelper(valueItem) : ensurePointer(valueItem.toString(), item);
     switch (key) {
       case '$ifNull':
         return this.$ifNull.apply(item, [valueItem[key]]);

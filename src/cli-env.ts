@@ -31,6 +31,8 @@ export const envMapping = {
   ssl_ca_file: 'DIANA_DB_SSL_CA_FILE',
   ssl_request_cert: 'DIANA_DB_SSL_REQUEST_CERT',
   ssl_reject_unauthorized: 'DIANA_DB_SSL_REJECT_UNAUTHORISED',
+  wal: 'DIANA_DB_WAL',
+  wal_fsync: 'DIANA_DB_WAL_FSYNC',
 };
 
 export function resolveConfPath(args: string[]): string {

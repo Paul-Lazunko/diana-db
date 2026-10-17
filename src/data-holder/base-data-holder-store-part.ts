@@ -1,5 +1,5 @@
 export type BaseDataHolderStorePart = {
   rawDataKeys: any;
   rawDataValues: any;
-  identifiers: Set<string>;
+  identifiers: Set<string> | string[];
 };

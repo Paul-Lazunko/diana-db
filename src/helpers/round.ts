@@ -1,5 +1,5 @@
 export function round(value: number, precision: number): number {
-  return Math.round(value / 10 ** (precision||0)) * 10 ** (precision || 0);
+  return Math.round(value / 10 ** (precision || 0)) * 10 ** (precision || 0);
 }
 
 // Without an explicit precision, numbers are stored and returned unchanged.

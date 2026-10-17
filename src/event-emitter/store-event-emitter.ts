@@ -5,6 +5,7 @@ import { config } from '@config';
 import { storeStrategies } from '@store-strategy';
 import { logger } from '@logger';
 import { ErrorFactory } from '@error';
+import { wal } from '../wal';
 
 const handlers: Map<string, any> = new Map<string, any>();
 const rootHandlers: Map<string, any> = new Map<string, any>();
@@ -34,6 +35,8 @@ const writeStore = async () => {
   rootHandlers.forEach((handler: () => any, prop: string) => {
     store.set(prop, handler());
   });
+  // The state is captured above, synchronously: log entries up to here are contained in this snapshot.
+  const obsoleteLogFiles: string[] = wal.rotate();
   switch (config.storeStrategy) {
     case 's3':
       await storeStrategies.s3.store(store, config.currentDumpName);
@@ -42,6 +45,8 @@ const writeStore = async () => {
       await storeStrategies.local.store(store, `${config.dumpDirectory}/${config.currentDumpName}`);
       break;
   }
+  // Snapshot is on disk: the log files it covers are no longer needed.
+  wal.removeFiles(obsoleteLogFiles);
 };
 
 let running: Promise<void> = Promise.resolve();

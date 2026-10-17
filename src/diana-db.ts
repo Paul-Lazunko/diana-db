@@ -18,15 +18,7 @@
    - Requires `pidof` (procps) on Linux.  Falls back to `/proc` scan if unavailable.
  */
 
-import {
-  readdirSync,
-  existsSync,
-  readFileSync,
-  copyFileSync,
-  accessSync,
-  constants,
-  unlinkSync
-} from 'fs';
+import { readdirSync, existsSync, readFileSync, copyFileSync, accessSync, constants, unlinkSync } from 'fs';
 import { execSync, spawn } from 'child_process';
 import { Datanautics } from 'datanautics';
 
@@ -42,7 +34,7 @@ import { logger } from '@logger';
 import { ErrorFactory } from '@error';
 import { S3Driver } from '@s3-driver';
 import { touch } from '@helper';
-
+import { removeWalFiles } from './wal';
 
 const userStore: Datanautics = new Datanautics({});
 
@@ -167,7 +159,6 @@ async function main() {
     const envObj: Record<string, string> = parseConfig(confPath);
     let s3Driver: S3Driver;
 
-
     const s3Options = {
       bucket: envObj.DIANA_DB_STORE_S3_BUCKET,
       endpoint: envObj.DIANA_DB_STORE_S3_ENDPOINT,
@@ -176,7 +167,7 @@ async function main() {
         accessKeyId: envObj.DIANA_DB_STORE_S3_ACCESS_KEY_ID,
         secretAccessKey: envObj.DIANA_DB_STORE_S3_SECRET_ACCESS_KEY,
       },
-    }
+    };
 
     if (envObj.DIANA_DB_STORE_STRATEGY === StoreStrategy.S3) {
       s3Driver = new S3Driver(s3Options);
@@ -184,14 +175,16 @@ async function main() {
 
     switch (envObj.DIANA_DB_STORE_STRATEGY) {
       case StoreStrategy.LOCAL:
-        await restoreStrategies.local.restore(userStore, `${envObj.DIANA_DB_DUMP_DIRECTORY}/${DEFAULT_DIANA_DB_USER_FILE_NAME}`).catch((e) => {
-          logger.error(ErrorFactory.requestError(e.message))
-        });
+        await restoreStrategies.local
+          .restore(userStore, `${envObj.DIANA_DB_DUMP_DIRECTORY}/${DEFAULT_DIANA_DB_USER_FILE_NAME}`)
+          .catch((e) => {
+            logger.error(ErrorFactory.requestError(e.message));
+          });
         break;
       case StoreStrategy.S3:
         await restoreStrategies.s3.restore(userStore, DEFAULT_DIANA_DB_USER_FILE_NAME).catch((e) => {
-          logger.error(ErrorFactory.requestError(e.message))
-        });;
+          logger.error(ErrorFactory.requestError(e.message));
+        });
         break;
     }
 
@@ -278,7 +271,7 @@ async function main() {
       case '-s':
       case '--settings': {
         echoInfo();
-        const content = readFileSync(confPath)
+        const content = readFileSync(confPath);
         console.log(content.toString('utf8'));
         break;
       }
@@ -393,6 +386,11 @@ async function main() {
             process.exit(1);
           }
           copyFileSync(backupPath, `${envObj.DIANA_DB_DUMP_DIRECTORY}/current.didb`);
+          // Log entries belong to the replaced dump; replaying them onto the backup would mix two states.
+          const removedLogs: number = removeWalFiles(envObj.DIANA_DB_DUMP_DIRECTORY);
+          if (removedLogs) {
+            console.log(`Removed ${removedLogs} write-ahead log file(s) of the previous dump`);
+          }
           console.log(`Backup applied ${envObj.DIANA_DB_DUMP_DIRECTORY}/${name}.didb`);
         }
         break;
@@ -441,7 +439,6 @@ async function main() {
         break;
     }
 
-
     switch (config.storeStrategy) {
       case StoreStrategy.LOCAL:
         await storeStrategies.local.store(userStore, `${config.dumpDirectory}/${DEFAULT_DIANA_DB_USER_FILE_NAME}`);
@@ -450,8 +447,6 @@ async function main() {
         await storeStrategies.s3.store(userStore, DEFAULT_DIANA_DB_USER_FILE_NAME);
         break;
     }
-
-
   } catch (e) {
     warn(e.message);
   }

@@ -9,8 +9,34 @@ import { logger } from '@logger';
 import * as process from 'process';
 import { ErrorFactory } from '@error';
 
-// Handshake line sent before the first request: "user:<name>" or "user:<name>:subscriber".
-const HANDSHAKE_REGEXP: RegExp = /^user:(\w+)(:\w+)?$/;
+// Handshake line sent before the first request:
+//   "user:<name>"                         regular connection, authenticated by its first encrypted request
+//   "user:<name>:subscriber:<token>"      subscription; token = encrypt(key, "user:<name>:subscriber:<YYYY-MM-DD>")
+const HANDSHAKE_REGEXP: RegExp = /^user:(\w+)(?::(\w+))?(?::([A-Za-z0-9+/=]+))?$/;
+const DAY_MS: number = 24 * 60 * 60 * 1000;
+
+/**
+ * Subscribers never send an encrypted request, so the token is their only proof of the password.
+ * Dates from yesterday to tomorrow (UTC) are accepted: a client using its local date can be a day
+ * ahead of or behind UTC.
+ */
+function isValidSubscriberToken(user: string, key: Buffer, token: string): boolean {
+  if (!token) {
+    return false;
+  }
+  let decrypted: string;
+  try {
+    decrypted = CryptoHelper.decrypt(key, token);
+  } catch {
+    return false;
+  }
+  const now: number = Date.now();
+  return [
+    now - DAY_MS,
+    now,
+    now + DAY_MS,
+  ].some((time: number) => decrypted === `user:${user}:subscriber:${new Date(time).toISOString().slice(0, 10)}`);
+}
 // Largest accepted request line (encrypted, base64). Protects memory from a line that never ends.
 const MAX_LINE_LENGTH: number = 64 * 1024 * 1024;
 
@@ -79,13 +105,19 @@ export class DianaDbServer {
           ,
           user,
           mode,
+          token,
         ] = handshake;
-        if (!getUserKey(user)) {
+        const key: Buffer = getUserKey(user);
+        if (!key) {
           close();
           return false;
         }
-        const isSubscriber: boolean = mode === ':subscriber';
+        const isSubscriber: boolean = mode === 'subscriber';
         if (isSubscriber) {
+          if (!isValidSubscriberToken(user, key, token)) {
+            close(`Rejected subscription of user "${user}" from ${addressInfo.address}: invalid or expired token`);
+            return false;
+          }
           this.subscribers.add(id);
         }
         this.sockets.get(id).user = user;
@@ -127,7 +159,7 @@ export class DianaDbServer {
 
     socket.on('data', (chunk: string) => {
       // Only scan the newly received part for newlines, so a large request split over many chunks stays linear.
-      let scanFrom: number = buffer.length;
+      const scanFrom: number = buffer.length;
       buffer += chunk;
       let lineStart: number = 0;
       let newline: number = buffer.indexOf('\n', scanFrom);

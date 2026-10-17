@@ -24,7 +24,7 @@ export class NumberHolder extends BaseDataHolder<number> {
           if (Array.isArray(value)) {
             value = value.map((item: number) => projectOutgoingValue(item, precision));
           } else {
-            value = projectOutgoingValue(value, precision)
+            value = projectOutgoingValue(value, precision);
           }
           result[identifier] = value;
         } else {
@@ -39,16 +39,18 @@ export class NumberHolder extends BaseDataHolder<number> {
     params: DataHolderMethodsParams<number>,
     data: DataHolderMethodsParams<number>,
     fieldDefinition: NumberFieldDefinition,
-    skip?: boolean
+    skip?: boolean,
   ) {
     if (data.value && typeof data.value === 'object') {
       let oldValue: number | number[] = this.rawDataValues.get(data.identifier);
       const isArrayOldValue: boolean = Array.isArray(oldValue);
       if (!skip) {
         if (isArrayOldValue) {
-          oldValue = (oldValue as number[]).map((item: number) => projectOutgoingValue(item, fieldDefinition?.precision))
+          oldValue = (oldValue as number[]).map((item: number) =>
+            projectOutgoingValue(item, fieldDefinition?.precision),
+          );
         } else {
-          oldValue = projectOutgoingValue(oldValue as number, fieldDefinition?.precision)
+          oldValue = projectOutgoingValue(oldValue as number, fieldDefinition?.precision);
         }
       }
       for (const action in data.value) {
@@ -57,23 +59,23 @@ export class NumberHolder extends BaseDataHolder<number> {
             if (isArrayOldValue) {
               data.value = Array.isArray(data.value[action])
                 ? [
-                  ...(oldValue as number[]),
-                  ...data.value[action],
-                ]
+                    ...(oldValue as number[]),
+                    ...data.value[action],
+                  ]
                 : [
-                  ...(oldValue as number[]),
-                  data.value[action],
-                ];
+                    ...(oldValue as number[]),
+                    data.value[action],
+                  ];
             } else if (oldValue || oldValue === 0) {
               data.value = Array.isArray(data.value[action])
                 ? [
-                  oldValue,
-                  ...data.value[action],
-                ]
+                    oldValue,
+                    ...data.value[action],
+                  ]
                 : [
-                  oldValue,
-                  data.value[action],
-                ];
+                    oldValue,
+                    data.value[action],
+                  ];
             } else {
               data.value = data.value[action];
             }
@@ -160,9 +162,10 @@ export class NumberHolder extends BaseDataHolder<number> {
     this.create(data, fieldDefinition, skip);
   }
 
-
   public distinct(precision?: number): number[] {
-    return Array.from(this.rawDataKeys.keys()).map((value: number) => precision ? projectOutgoingValue(value, precision) : value);
+    return Array.from(this.rawDataKeys.keys()).map((value: number) =>
+      precision ? projectOutgoingValue(value, precision) : value,
+    );
   }
 
   protected checkData(data: DataHolderMethodsParams<number>) {}

@@ -5,12 +5,15 @@ import { DataHolderMethodsParams } from '@parameters';
 import { BaseQueryProcessor } from '@query-processor';
 import { NumberFieldDefinition } from '@collection';
 import { Types } from '@const';
+import { IdEntry, addId, deleteId, entryFromStored, idsOf } from '../helpers/id-entry';
 
 export class BaseDataHolder<T> implements DataHolder {
   protected type: Types;
   protected database: Database;
   protected rawDataValues: Map<string, T | T[]>;
-  protected rawDataKeys: Map<T, string[]>;
+  // value -> ids holding it (a string for one id, a Set for more). O(1) add/remove; arrays made removal
+  // O(ids with that value), which made updates of low-cardinality fields (booleans, enums) quadratic.
+  protected rawDataKeys: Map<T, IdEntry>;
   protected identifiers: Set<string>;
   protected readonly queryProcessorConstructor: any;
   protected queryProcessor: BaseQueryProcessor<T>;
@@ -24,7 +27,7 @@ export class BaseDataHolder<T> implements DataHolder {
   }
 
   public init() {
-    this.rawDataKeys = new Map<T, string[]>();
+    this.rawDataKeys = new Map<T, IdEntry>();
     this.rawDataValues = new Map<string, T | T[]>();
     this.identifiers = new Set<string>();
     this.queryProcessor = new this.queryProcessorConstructor({
@@ -35,6 +38,10 @@ export class BaseDataHolder<T> implements DataHolder {
 
   public hasValue(value: any) {
     return this.rawDataKeys.has(value);
+  }
+
+  protected addKey(value: T, identifier: string) {
+    addId(this.rawDataKeys, value, identifier);
   }
 
   public create(params: DataHolderMethodsParams<T>, fieldDefinition?: NumberFieldDefinition) {
@@ -67,18 +74,10 @@ export class BaseDataHolder<T> implements DataHolder {
 
     if (Array.isArray(value)) {
       for (let i = 0; i < value.length; i = i + 1) {
-        if (this.rawDataKeys.has(value[i])) {
-          this.rawDataKeys.get(value[i]).push(identifier);
-        } else {
-          this.rawDataKeys.set(value[i], [identifier]);
-        }
+        this.addKey(value[i], identifier);
       }
     } else {
-      if (this.rawDataKeys.has(value)) {
-        this.rawDataKeys.get(value).push(identifier);
-      } else {
-        this.rawDataKeys.set(value, [identifier]);
-      }
+      this.addKey(value as T, identifier);
     }
   }
 
@@ -100,38 +99,17 @@ export class BaseDataHolder<T> implements DataHolder {
     }
     const values: T[] = Array.isArray(stored) ? stored : [stored];
     for (const value of new Set(values)) {
-      const ids = this.rawDataKeys.get(value);
-      if (!Array.isArray(ids) || !ids.includes(identifier)) {
+      if (!deleteId(this.rawDataKeys, value, identifier)) {
         // Index key and stored value disagree (e.g. a dump from an older version): fall back to a full scan.
         this.removeFromAllKeys(identifier);
         return;
-      }
-      let index: number = ids.indexOf(identifier);
-      while (index !== -1) {
-        ids.splice(index, 1);
-        index = ids.indexOf(identifier);
-      }
-      if (!ids.length) {
-        this.rawDataKeys.delete(value);
       }
     }
   }
 
   protected removeFromAllKeys(identifier: string) {
     for (const key of Array.from(this.rawDataKeys.keys())) {
-      const item = this.rawDataKeys.get(key);
-      if (Array.isArray(item)) {
-        if (item.includes(identifier)) {
-          item.splice(item.indexOf(identifier), 1);
-          if (!item.length) {
-            this.rawDataKeys.delete(key as T);
-          }
-        }
-      } else {
-        if (item === identifier) {
-          this.rawDataKeys.delete(key as T);
-        }
-      }
+      deleteId(this.rawDataKeys, key, identifier);
     }
   }
 
@@ -162,20 +140,22 @@ export class BaseDataHolder<T> implements DataHolder {
     return Array.from(this.rawDataKeys.keys());
   }
 
+  /** Dump format is unchanged: id lists are written as arrays. */
   public store(): BaseDataHolderStorePart {
     const result: any = {
       rawDataKeys: {},
       rawDataValues: {},
-      identifiers: this.identifiers,
+      // Not needed to rebuild the index (never read); kept as an empty list so the dump format is unchanged.
+      identifiers: [],
     };
     this.rawDataValues.forEach((value: T, key: string) => {
       if (key !== undefined && value !== undefined) {
         result.rawDataValues[key.toString()] = value;
       }
     });
-    this.rawDataKeys.forEach((value: any, key: T) => {
-      if (key !== undefined && value !== undefined) {
-        result.rawDataKeys[key.toString()] = value;
+    this.rawDataKeys.forEach((entry: IdEntry, key: T) => {
+      if (key !== undefined && entry !== undefined) {
+        result.rawDataKeys[key.toString()] = idsOf(entry);
       }
     });
     return result;
@@ -184,7 +164,7 @@ export class BaseDataHolder<T> implements DataHolder {
   public restore(data: BaseDataHolderStorePart): void {
     const { rawDataKeys, rawDataValues, identifiers } = data;
     if (identifiers) {
-      this.identifiers = new Set(Array.from(identifiers)) || this.identifiers;
+      this.identifiers = new Set(Array.from(identifiers as any)) || this.identifiers;
     }
     for (const key in rawDataKeys) {
       let k: any = key.trim();
@@ -196,15 +176,13 @@ export class BaseDataHolder<T> implements DataHolder {
       } else if (this.type === Types.REFERENCE && /^undefined$/.test(k)) {
         continue;
       }
-      this.rawDataKeys.set(k, rawDataKeys[key]);
+      const entry: IdEntry = entryFromStored(rawDataKeys[key]);
+      if (entry !== undefined) {
+        this.rawDataKeys.set(k, entry);
+      }
     }
     for (const key in rawDataValues) {
-      let k: any = `${key}`;
-      if (this.type === Types.BOOLEAN && /^(true|false)$/.test(key)) {
-        k = key === 'true';
-      } else if (this.type === Types.NUMBER && /^(\d+)$/.test(key)) {
-        k = parseInt(key.toString(), 10);
-      } else if (this.type === Types.REFERENCE && /^undefined$/.test(key)) {
+      if (this.type === Types.REFERENCE && /^undefined$/.test(key)) {
         continue;
       }
       this.rawDataValues.set(key, rawDataValues[key]);

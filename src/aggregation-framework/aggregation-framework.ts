@@ -69,12 +69,16 @@ export class AggregationFramework {
   }
 
   protected $lookup(item: any, options: LookupQuery): any {
-    const { collection, database, as, foreignField, localField, filter} = options;
-    if (database && !this.collection.db.dianaDB.databases.has(database) ) {
+    const { collection, database, as, foreignField, localField, filter } = options;
+    if (database && !this.collection.db.dianaDB.databases.has(database)) {
       throw ErrorFactory.databaseError(`database ${database} doesn't exist`);
     } else if (!database && !this.collection.db.collections.has(collection)) {
       throw ErrorFactory.databaseError(`collection ${collection} doesn't exist`);
-    } else if (database && this.collection.db.dianaDB.databases.has(database) && !this.collection.db.dianaDB.databases.get(database).collections.has(collection) ){
+    } else if (
+      database &&
+      this.collection.db.dianaDB.databases.has(database) &&
+      !this.collection.db.dianaDB.databases.get(database).collections.has(collection)
+    ) {
       throw ErrorFactory.databaseError(`collection ${collection} doesn't exist`);
     }
     const filterQuery: any = {};
@@ -104,7 +108,7 @@ export class AggregationFramework {
 
   protected $unwind(item: any, field: string) {
     const items: any[] = [];
-    const key = field.replace(/^\$/, '')
+    const key = field.replace(/^\$/, '');
     if (!Array.isArray(item[key])) {
       throw ErrorFactory.transformError(`property '${key}' should be an array`);
     }
@@ -187,8 +191,8 @@ export class AggregationFramework {
   }
 
   protected $match(items: any[], matchQuery: any) {
-    if (typeof matchQuery !== 'object' ) {
-      matchQuery = { $eq: matchQuery }
+    if (typeof matchQuery !== 'object') {
+      matchQuery = { $eq: matchQuery };
     }
     for (const key in matchQuery) {
       const method: string = Object.keys(matchQuery[key])[0];

@@ -128,11 +128,9 @@ export class ReferenceHolder implements DataHolder {
     };
     this.references.forEach((v: string | string[], k: string) => {
       result.references[k] = v;
-
     });
     this.referencesInverted.forEach((v: string | string[], k: string) => {
       result.referencesInverted[k] = v;
-
     });
     return result;
   }
@@ -142,11 +140,9 @@ export class ReferenceHolder implements DataHolder {
     this.reference = reference;
     for (const key in referencesInverted) {
       this.referencesInverted.set(key, referencesInverted[key]);
-
     }
     for (const key in references) {
       this.references.set(key, references[key]);
-
     }
   }
 }

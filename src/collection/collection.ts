@@ -30,6 +30,32 @@ import { TransformQuery } from '@dto';
 import { ErrorFactory } from '@error';
 import { triggerEventNamesExtractor } from '../helpers/trigger-event-names-extractor';
 import { logger } from '@logger';
+import { wal } from '../wal';
+
+// Stages that map each source document independently; views made only of these update incrementally.
+const INCREMENTAL_VIEW_STAGES: string[] = [
+  '$match',
+  '$project',
+  '$unwind',
+  '$replaceRoot',
+  '$lookup',
+];
+// Upper bound for the pause between two full rebuilds of the same view.
+const MAX_VIEW_REBUILD_DELAY_MS: number = 1000;
+
+type ViewChange = { ids: string[] };
+
+type ViewState = {
+  transformQueries: TransformQuery[];
+  items: any[];
+  incremental: boolean;
+  bySource: Map<string, any[]>; // source document id -> view items it produced (incremental views)
+  dirty: boolean; // items must be re-flattened from bySource
+  pending: Set<string>; // source ids changed since the last update
+  fullPending: boolean;
+  scheduled: boolean;
+  lastFullMs: number;
+};
 
 export class Collection<T> {
   public db: Database;
@@ -51,9 +77,14 @@ export class Collection<T> {
   private refs: Map<string, string | string[]>[] = [];
   private refsHolder: Map<string, string | string[]>[] = [];
   private relatedCollections: { [key: string]: string }[] = [];
-  public views: Record<string, { transformQueries: TransformQuery[]; items?: any[] }>;
-  private readonly viewTriggerEventHandlers: Record<string, () => void>;
-  private readonly viewTriggerEventHandlersStates: Record<string, boolean>;
+  public views: Record<string, ViewState>;
+  private readonly viewTriggerEventHandlers: Record<
+    string,
+    [
+      string,
+      (change?: ViewChange) => void,
+    ][]
+  >;
 
   constructor(
     name: string,
@@ -79,7 +110,6 @@ export class Collection<T> {
     this.validate = new Validator({ collection: this });
     this.views = {};
     this.viewTriggerEventHandlers = {};
-    this.viewTriggerEventHandlersStates = {};
     for (const view in views) {
       this.createView(view, views[view].transformQueries);
     }
@@ -95,58 +125,172 @@ export class Collection<T> {
 
   public getViews() {
     const response = {};
-    for ( const view in this.views) {
-      response[view] = { transformQueries: this.views[view].transformQueries }
+    for (const view in this.views) {
+      response[view] = { transformQueries: this.views[view].transformQueries };
     }
     return response;
   }
 
+  /**
+   * Views made only of per-document stages are maintained incrementally: each write re-evaluates just
+   * the affected source documents. Views with $group/$sort/$skip/$limit, and changes coming from
+   * $lookup targets, trigger a full rebuild, throttled so rebuilds can't take over the event loop.
+   */
   public createView(name: string, transformQueries: TransformQuery[]) {
     this.validate.transformQueries(transformQueries);
-    this.views[name] = { transformQueries, items: [] };
+    const incremental: boolean = transformQueries.every((query: TransformQuery) =>
+      INCREMENTAL_VIEW_STAGES.includes(Object.keys(query || {})[0]),
+    );
+    this.views[name] = {
+      transformQueries,
+      items: [],
+      incremental,
+      bySource: new Map<string, any[]>(),
+      dirty: false,
+      pending: new Set<string>(),
+      fullPending: true,
+      scheduled: false,
+      lastFullMs: 0,
+    };
     this.db.addName(name);
     let events = triggerEventNamesExtractor(transformQueries, this.db.name);
     events.push(this.viewTriggerEventName);
     events = Array.from(new Set(events));
-    for (const event of events) {
-      this.viewTriggerEventHandlers[name] = () => {
-        if (!this.viewTriggerEventHandlersStates[name]) {
-          this.viewTriggerEventHandlersStates[name] = true;
-          setTimeout(() => {
-            try {
-              this.constructViewItems(name);
-            } catch(e) {
-              logger.error(e);
-            }
-            this.viewTriggerEventHandlersStates[name] = false;
-          }, 0);
-        }
-      };
-      viewEventEmitter.on(event, this.viewTriggerEventHandlers[name]);
-    }
-    setTimeout(() => {
-      try {
-        this.constructViewItems(name);
-      } catch (e) {
-        logger.error(e);
-      }
-    }, 0);
+    // One handler per event, all kept, so removeView can detach every one of them.
+    this.viewTriggerEventHandlers[name] = events.map((event: string) => {
+      const handler = (change?: ViewChange) => this.onViewSourceChange(name, event, change);
+      viewEventEmitter.on(event, handler);
+      return [
+        event,
+        handler,
+      ] as [
+        string,
+        (change?: ViewChange) => void,
+      ];
+    });
+    this.scheduleViewUpdate(name);
   }
 
   public removeView(name: string) {
     if (this.views[name]) {
-      for (const event of viewEventEmitter.eventNames().slice()) {
-        viewEventEmitter.off(event, this.viewTriggerEventHandlers[name]);
+      for (const [
+        event,
+        handler,
+      ] of this.viewTriggerEventHandlers[name] || []) {
+        viewEventEmitter.off(event, handler);
       }
+      delete this.viewTriggerEventHandlers[name];
       delete this.views[name];
       this.db.removeName(name);
     }
   }
 
+  /** Rebuilds a view synchronously. */
   protected constructViewItems(name: string) {
-    if (this.views[name] && typeof this.views[name] === 'object') {
-      this.views[name].items = this.find([{}], this.views[name].transformQueries);
+    const view: ViewState = this.views[name];
+    if (view) {
+      view.fullPending = false;
+      view.pending.clear();
+      this.rebuildView(view);
     }
+  }
+
+  protected onViewSourceChange(name: string, event: string, change?: ViewChange) {
+    const view: ViewState = this.views[name];
+    if (!view) {
+      return;
+    }
+    if (view.incremental && event === this.viewTriggerEventName && Array.isArray(change?.ids)) {
+      change.ids.forEach((id: string) => view.pending.add(id));
+    } else {
+      view.fullPending = true;
+    }
+    this.scheduleViewUpdate(name);
+  }
+
+  protected scheduleViewUpdate(name: string) {
+    const view: ViewState = this.views[name];
+    if (!view || view.scheduled) {
+      return;
+    }
+    view.scheduled = true;
+    // A full rebuild waits as long as the previous one took (capped), so rebuilding uses at most
+    // about half of the event loop however fast writes arrive. Incremental updates run on the next tick.
+    const delay: number = view.fullPending ? Math.min(view.lastFullMs, MAX_VIEW_REBUILD_DELAY_MS) : 0;
+    setTimeout(() => {
+      view.scheduled = false;
+      try {
+        this.updateView(name);
+      } catch (e) {
+        logger.error(e);
+      }
+    }, delay);
+  }
+
+  protected updateView(name: string) {
+    const view: ViewState = this.views[name];
+    if (!view) {
+      return;
+    }
+    if (view.fullPending) {
+      const started: number = Date.now();
+      view.fullPending = false;
+      view.pending.clear();
+      this.rebuildView(view);
+      view.lastFullMs = Date.now() - started;
+      return;
+    }
+    if (!view.pending.size) {
+      return;
+    }
+    const ids: string[] = Array.from(view.pending);
+    view.pending.clear();
+    const docs: any[] = this.find([{ _id: { $in: ids } }]);
+    const byId: Map<string, any> = new Map<string, any>(
+      docs.map((doc: any) => [
+        doc._id,
+        doc,
+      ]),
+    );
+    for (const id of ids) {
+      const doc: any = byId.get(id);
+      if (doc) {
+        view.bySource.set(id, this.aggregationFrameWork.aggregate([doc], view.transformQueries));
+      } else {
+        view.bySource.delete(id);
+      }
+    }
+    view.dirty = true;
+  }
+
+  protected rebuildView(view: ViewState) {
+    if (view.incremental) {
+      const bySource: Map<string, any[]> = new Map<string, any[]>();
+      for (const doc of this.find([{}])) {
+        bySource.set(doc._id, this.aggregationFrameWork.aggregate([doc], view.transformQueries));
+      }
+      view.bySource = bySource;
+      view.dirty = true;
+    } else {
+      view.items = this.find([{}], view.transformQueries);
+      view.dirty = false;
+    }
+  }
+
+  /** Current items of a view; incremental views are flattened lazily after changes. */
+  protected getViewItems(name: string): any[] {
+    const view: ViewState = this.views[name];
+    if (view.incremental && view.dirty) {
+      const items: any[] = [];
+      view.bySource.forEach((sourceItems: any[]) => {
+        for (const item of sourceItems) {
+          items.push(item);
+        }
+      });
+      view.items = items;
+      view.dirty = false;
+    }
+    return view.items;
   }
 
   public startTransaction(transactionId: string, ttl: number) {
@@ -165,7 +309,7 @@ export class Collection<T> {
           this.removeLocks(transactionId);
           this.clearTransactionTimer(transactionId);
           this.removeTransactionData(transactionId);
-        } catch(e) {
+        } catch (e) {
           logger.error(e);
         }
       }, ttl),
@@ -215,33 +359,49 @@ export class Collection<T> {
               type = this.db.Types.get((this.schema[key] as ArrayFieldDefinition).items);
               dataHolder = type.data;
               transactionHolder = type.transactions;
-              data = transactionHolder.get(this.name).get(key).get(transactionId).get([inserted[i]], (this.schema[key] as NumberFieldDefinition).precision);
+              data = transactionHolder
+                .get(this.name)
+                .get(key)
+                .get(transactionId)
+                .get([inserted[i]], (this.schema[key] as NumberFieldDefinition).precision);
               // Fields the document never set are skipped, as in a plain insert (undefined TIME values threw here).
               if (data[inserted[i]] === undefined) {
                 break;
               }
-              dataHolder.get(this.name).get(key).create({
-                  identifier: inserted[i],
-                  value: data[inserted[i]],
-                },
-                this.schema[key] as NumberFieldDefinition
+              dataHolder
+                .get(this.name)
+                .get(key)
+                .create(
+                  {
+                    identifier: inserted[i],
+                    value: data[inserted[i]],
+                  },
+                  this.schema[key] as NumberFieldDefinition,
                 );
               break;
             default:
               type = this.db.Types.get(this.schema[key]?.type);
               dataHolder = type.data;
               transactionHolder = type.transactions;
-              data = transactionHolder.get(this.name).get(key).get(transactionId).get([inserted[i]], (this.schema[key] as NumberFieldDefinition).precision);
+              data = transactionHolder
+                .get(this.name)
+                .get(key)
+                .get(transactionId)
+                .get([inserted[i]], (this.schema[key] as NumberFieldDefinition).precision);
               // Fields the document never set are skipped, as in a plain insert (undefined TIME values threw here).
               if (data[inserted[i]] === undefined) {
                 break;
               }
-              dataHolder.get(this.name).get(key).create({
-                  identifier: inserted[i],
-                  value: data[inserted[i]],
-                },
-                this.schema[key] as NumberFieldDefinition
-              );
+              dataHolder
+                .get(this.name)
+                .get(key)
+                .create(
+                  {
+                    identifier: inserted[i],
+                    value: data[inserted[i]],
+                  },
+                  this.schema[key] as NumberFieldDefinition,
+                );
               break;
           }
         }
@@ -276,7 +436,7 @@ export class Collection<T> {
           ],
           setData,
           undefined,
-          true
+          true,
         );
       });
     }
@@ -322,13 +482,23 @@ export class Collection<T> {
   }
 
   public commitTransaction(transactionId: string) {
+    const inserted: string[] = this.transactionsData.get(transactionId)?.inserted.slice() || [];
     this.clearTransactionTimer(transactionId);
     this.insertTransactionItems(transactionId);
     this.removeTransactionItems(transactionId);
     this.updateTransactionItems(transactionId);
     this.removeTransactionData(transactionId);
     this.removeLocks(transactionId);
-    viewEventEmitter.emit(this.viewTriggerEventName);
+    if (inserted.length && wal.enabled && !wal.replaying) {
+      // Committed inserts bypass insert(); log them as final documents, after the transaction's data is
+      // gone (find() hides a transaction's own inserts while it exists). Updates and removes of the
+      // commit went through update()/remove() and were logged there.
+      for (const doc of this.find([{ _id: { $in: inserted } }])) {
+        wal.append({ op: 'insert', db: this.db.name, c: this.name, doc });
+      }
+    }
+    // Updates and removes of the commit emitted their own changes; inserts are reported here.
+    viewEventEmitter.emit(this.viewTriggerEventName, { ids: inserted });
   }
 
   public initRefs(
@@ -359,9 +529,7 @@ export class Collection<T> {
         }
       }
       if (update && this.schema[key].mutable === false && Object.prototype.hasOwnProperty.apply(data, [key])) {
-        throw ErrorFactory.schemaError(
-          `property '${key}' of the '${this.name}' collection's Schema is not mutable`,
-        );
+        throw ErrorFactory.schemaError(`property '${key}' of the '${this.name}' collection's Schema is not mutable`);
       }
       if (!update && this.schema[key].required && !Object.prototype.hasOwnProperty.apply(data, [key])) {
         throw ErrorFactory.schemaError(`property '${key}' is required in the '${this.name}' collection's Schema`);
@@ -375,8 +543,9 @@ export class Collection<T> {
     }
   }
 
-  public insert(data: any, transactionId?: string, skip?: boolean): any {
-    const _id = objectIdHelper();
+  /** `forcedId` is used when replaying the write-ahead log, so documents keep their original _id. */
+  public insert(data: any, transactionId?: string, skip?: boolean, forcedId?: string): any {
+    const _id = forcedId || objectIdHelper();
     this.validate.data(data, false);
     this.validateData(data, transactionId);
     data._id = _id;
@@ -402,10 +571,13 @@ export class Collection<T> {
             : type.data.get(this.name).get(key);
 
           for (let i = 0; i < data[key]?.length; i = i + 1) {
-            dataHolder.create({
-              identifier: result._id,
-              value: data[key][i],
-            }, this.schema[key] as NumberFieldDefinition);
+            dataHolder.create(
+              {
+                identifier: result._id,
+                value: data[key][i],
+              },
+              this.schema[key] as NumberFieldDefinition,
+            );
           }
           result[key] = data[key];
           break;
@@ -416,7 +588,8 @@ export class Collection<T> {
             ? type.transactions.get(this.name).get(key).get(transactionId)
             : type.data.get(this.name).get(key);
 
-          dataHolder.create({
+          dataHolder.create(
+            {
               identifier: result._id,
               value,
             },
@@ -427,7 +600,8 @@ export class Collection<T> {
       }
     }
     if (!transactionExists) {
-      viewEventEmitter.emit(this.viewTriggerEventName);
+      wal.append({ op: 'insert', db: this.db.name, c: this.name, doc: result });
+      viewEventEmitter.emit(this.viewTriggerEventName, { ids: [result._id] });
       publishEventEmitter.emit('publish', {
         database: this.db.name,
         collection: this.name,
@@ -447,7 +621,10 @@ export class Collection<T> {
       propertyType === Types.ARRAY
         ? this.db.Types.get((this.schema[key] as ArrayFieldDefinition).items)
         : this.db.Types.get(this.schema[key].type);
-    return type.data.get(this.name).get(key).distinct((this.schema[key] as NumberFieldDefinition)?.precision);
+    return type.data
+      .get(this.name)
+      .get(key)
+      .distinct((this.schema[key] as NumberFieldDefinition)?.precision);
   }
 
   public max(key: string): any[] {
@@ -470,7 +647,7 @@ export class Collection<T> {
     const values = type.data.get(this.name).get(key).distinct();
 
     const value: any[] = findValueWithMode(values, mode);
-    return this.find([{ [key]: { $in: value } }], undefined, undefined, undefined, undefined, undefined, true );
+    return this.find([{ [key]: { $in: value } }], undefined, undefined, undefined, undefined, undefined, true);
   }
 
   public find(
@@ -480,7 +657,7 @@ export class Collection<T> {
     skip?: number,
     limit?: number,
     transactionId?: string,
-    skipConversions?: boolean
+    skipConversions?: boolean,
   ): any[] {
     if (!filterQueries) {
       filterQueries = [{}];
@@ -548,7 +725,7 @@ export class Collection<T> {
   public remove(filterQueries: FindQuery[], transactionId?: string): RemoveResult {
     const items: any[] = this.find(filterQueries, [], null, null, null, transactionId);
     this.checkLocks(items, transactionId || '');
-    if(transactionId) {
+    if (transactionId) {
       this.setLocks(items, transactionId);
     }
     const result: RemoveResult = {
@@ -576,7 +753,8 @@ export class Collection<T> {
     result.removed = items.length;
     result.executionTime = Date.now() - result.executionTime;
     if (!transactionId && items.length) {
-      viewEventEmitter.emit(this.viewTriggerEventName);
+      wal.append({ op: 'remove', db: this.db.name, c: this.name, ids: items.map((item: any) => item._id) });
+      viewEventEmitter.emit(this.viewTriggerEventName, { ids: items.map((item: any) => item._id) });
       publishEventEmitter.emit(ServerActions.PUBLISH, {
         database: this.db.name,
         collection: this.name,
@@ -611,7 +789,7 @@ export class Collection<T> {
         $limit,
       });
     }
-    return this.aggregationFrameWork.aggregate(this.views[view].items, transformQueries);
+    return this.aggregationFrameWork.aggregate(this.getViewItems(view), transformQueries);
   }
 
   countByView(view: string, $match: FindQuery): number {
@@ -629,11 +807,16 @@ export class Collection<T> {
         },
       },
     ];
-    const result = this.aggregationFrameWork.aggregate(this.views[view].items, transformQueries);
+    const result = this.aggregationFrameWork.aggregate(this.getViewItems(view), transformQueries);
     return (result && result[0] && result[0].count) || 0;
   }
 
-  public update(filterQueries: FindQuery[], updateData: UpdateData<any>, transactionId?: string, skipCheckLocks?: boolean): UpdateResult {
+  public update(
+    filterQueries: FindQuery[],
+    updateData: UpdateData<any>,
+    transactionId?: string,
+    skipCheckLocks?: boolean,
+  ): UpdateResult {
     this.validate.filterQueries(filterQueries);
     this.validateData(updateData, transactionId, true);
     this.validate.data(updateData, true);
@@ -693,7 +876,7 @@ export class Collection<T> {
                       value: evaluatedValue,
                     },
                     this.schema[key] as NumberFieldDefinition,
-                    true
+                    true,
                   )
               : type.data
                   .get(this.name)
@@ -705,7 +888,9 @@ export class Collection<T> {
                       value: evaluatedValue,
                     },
                     this.schema[key] as NumberFieldDefinition,
-                    skipCheckLocks
+                    // Plain values must always be converted (precision). Passing skipCheckLocks here made
+                    // committed transaction updates store e.g. 1.5 unscaled, read back as 0.01.
+                    false,
                   );
           }
           isUpdated = true;
@@ -720,7 +905,22 @@ export class Collection<T> {
     }
     result.executionTime = Date.now() - result.executionTime;
     if (!transactionExists && result.modified) {
-      viewEventEmitter.emit(this.viewTriggerEventName);
+      if (wal.enabled && !wal.replaying) {
+        // Log final values, not the request: operators ($add, pointers, …) are resolved per document.
+        const keys: string[] = Object.keys(updateData).filter((key: string) => !!this.schema[key]);
+        const changed: any[] = this.find([{ _id: { $in: items.map((item: any) => item._id) } }]);
+        wal.append({
+          op: 'update',
+          db: this.db.name,
+          c: this.name,
+          docs: changed.map((doc: any) => {
+            const set: any = {};
+            keys.forEach((key: string) => (set[key] = doc[key] === undefined ? null : doc[key]));
+            return { _id: doc._id, set };
+          }),
+        });
+      }
+      viewEventEmitter.emit(this.viewTriggerEventName, { ids: items.map((item: any) => item._id) });
       publishEventEmitter.emit('publish', {
         database: this.db.name,
         collection: this.name,
@@ -810,6 +1010,16 @@ export class Collection<T> {
   ) {
     let { base } = constructItems;
     const { transactionId, transaction } = constructItems;
+    // Sorted page without transforms or transaction overlay: rank ids by the sort columns only and
+    // build just the documents on the page, instead of building and sorting every match.
+    if (
+      sortQuery &&
+      limit &&
+      !(transformQueries && transformQueries.length) &&
+      !(transactionId && this.transactionsData.has(transactionId))
+    ) {
+      return this.constructTopItems(base, sortQuery, skip || 0, limit);
+    }
     let result: any[] = [];
     const data: any = {};
     const transactionsData: any = {};
@@ -822,9 +1032,16 @@ export class Collection<T> {
         propertyType === Types.ARRAY
           ? this.db.Types.get((this.schema[key] as ArrayFieldDefinition).items)
           : this.db.Types.get(this.schema[key].type);
-      data[key] = type.data.get(this.name).get(key).get(base, (this.schema[key] as any).precision);
+      data[key] = type.data
+        .get(this.name)
+        .get(key)
+        .get(base, (this.schema[key] as any).precision);
       if (transaction && transactionId) {
-        transactionsData[key] = type.transactions.get(this.name).get(key).get(transactionId).get(transaction, (this.schema[key] as any).precision);
+        transactionsData[key] = type.transactions
+          .get(this.name)
+          .get(key)
+          .get(transactionId)
+          .get(transaction, (this.schema[key] as any).precision);
       }
     }
     for (const _id of base) {
@@ -910,6 +1127,95 @@ export class Collection<T> {
     return result;
   }
 
+  /**
+   * Returns documents skip..skip+limit of `base` ordered by sortQuery.
+   * Keeps the best skip+limit candidates in a bounded max-heap (O(n log k)), comparing only the sort
+   * columns. Ties keep their order in `base`, exactly like the stable Array.prototype.sort it replaces.
+   */
+  private constructTopItems(base: string[], sortQuery: Sorting, skip: number, limit: number): any[] {
+    const keys: string[] = Object.keys(sortQuery);
+    const columns: Record<string, any>[] = keys.map((key: string) => {
+      const definition: any = this.schema[key];
+      if (!definition) {
+        return {};
+      }
+      const type: Field =
+        definition.type === Types.ARRAY ? this.db.Types.get(definition.items) : this.db.Types.get(definition.type);
+      return type.data.get(this.name).get(key).get(base, definition.precision);
+    });
+    const valueOf = (k: number, id: string): any => {
+      const value: any = columns[k][id];
+      if (this.schema[keys[k]]?.type === Types.ARRAY) {
+        return value === undefined ? [] : Array.isArray(value) ? value : [value];
+      }
+      return value;
+    };
+    const compare = (a: number, b: number): number => {
+      for (let k = 0; k < keys.length; k = k + 1) {
+        const result: number = this.compareValues(keys[k], valueOf(k, base[a]), valueOf(k, base[b]));
+        if (result !== 0) {
+          return sortQuery[keys[k]] === -1 ? -result : result;
+        }
+      }
+      return a - b;
+    };
+
+    const size: number = Math.min(skip + limit, base.length);
+    const heap: number[] = []; // max-heap by compare: the worst kept candidate is at heap[0]
+    const siftUp = (i: number) => {
+      while (i > 0) {
+        const parent: number = (i - 1) >> 1;
+        if (compare(heap[i], heap[parent]) <= 0) {
+          break;
+        }
+        [
+          heap[i],
+          heap[parent],
+        ] = [
+          heap[parent],
+          heap[i],
+        ];
+        i = parent;
+      }
+    };
+    const siftDown = (i: number) => {
+      for (;;) {
+        const left: number = 2 * i + 1;
+        const right: number = left + 1;
+        let largest: number = i;
+        if (left < heap.length && compare(heap[left], heap[largest]) > 0) {
+          largest = left;
+        }
+        if (right < heap.length && compare(heap[right], heap[largest]) > 0) {
+          largest = right;
+        }
+        if (largest === i) {
+          return;
+        }
+        [
+          heap[i],
+          heap[largest],
+        ] = [
+          heap[largest],
+          heap[i],
+        ];
+        i = largest;
+      }
+    };
+    for (let i = 0; i < base.length && size > 0; i = i + 1) {
+      if (heap.length < size) {
+        heap.push(i);
+        siftUp(heap.length - 1);
+      } else if (compare(i, heap[0]) < 0) {
+        heap[0] = i;
+        siftDown(0);
+      }
+    }
+    heap.sort(compare);
+    const page: string[] = heap.slice(skip).map((i: number) => base[i]);
+    return this.constructItems({ base: page, transaction: undefined, transactionId: undefined });
+  }
+
   /** Ascending comparison of two values of a schema field; missing values sort first. */
   protected compareValues(key: string, a: any, b: any): number {
     if (a === b) {
@@ -989,7 +1295,6 @@ export class Collection<T> {
     }
   }
 
-
   protected checkLocks(items, transactionId) {
     const lockedItems = items
       .map((item: T & { _id }) => item._id)
@@ -1012,7 +1317,10 @@ export class Collection<T> {
     }
     if (this.transactionsLocksGroups.has(transactionId)) {
       const existing = this.transactionsLocksGroups.get(transactionId);
-      this.transactionsLocksGroups.set(transactionId, [...existing, ...revisedIds]);
+      this.transactionsLocksGroups.set(transactionId, [
+        ...existing,
+        ...revisedIds,
+      ]);
     } else {
       this.transactionsLocksGroups.set(transactionId, revisedIds);
     }

@@ -13,4 +13,3 @@ export type TimeFindQuery = {
   $timestamp: Exclude<QueryOperands<number>, '$regex' | '$contains' | '$startsWith' | '$endsWith'>;
   $raw: Pick<QueryOperands<string>, '$in' | '$nin' | '$contains' | '$startsWith' | '$endsWith'>;
 };
-

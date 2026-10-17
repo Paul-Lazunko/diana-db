@@ -14,19 +14,21 @@ const configurationOptions = joi.object({
   currentDumpName: joi.string(),
   backupName: joi.string(),
   storeStrategy: joi.string().valid('s3', 'local').required(),
-  s3: joi.object({
-    region: joi.string(),
-    bucket: joi.string(),
-    endpoint: joi.string(),
-    credentials: joi.object({
-      accessKeyId: joi.string(),
-      secretAccessKey: joi.string(),
+  s3: joi
+    .object({
+      region: joi.string(),
+      bucket: joi.string(),
+      endpoint: joi.string(),
+      credentials: joi.object({
+        accessKeyId: joi.string(),
+        secretAccessKey: joi.string(),
+      }),
+    })
+    .when('storeStrategy', {
+      is: 's3',
+      then: joi.required(),
+      otherwise: joi.optional(),
     }),
-  }).when('storeStrategy', {
-    is: 's3',
-    then: joi.required(),
-    otherwise: joi.optional(),
-  }),
   tls: joi.object({
     cert: joi.string(),
     key: joi.string(),
@@ -35,6 +37,10 @@ const configurationOptions = joi.object({
     requestCert: joi.boolean(),
   }),
   logger: joi.string().valid('winston', 'console'),
+  wal: joi.object({
+    enabled: joi.boolean(),
+    fsync: joi.boolean(),
+  }),
   cert: joi.string(),
   key: joi.string(),
 });
@@ -105,10 +111,7 @@ const timeField = joi.alternatives(
     })
     .min(1),
 );
-const booleanField = joi.alternatives(
-  joi.boolean().allow(true, false),
-  pointer,
-);
+const booleanField = joi.alternatives(joi.boolean().allow(true, false), pointer);
 
 const geoField = joi.alternatives(
   joi.object({
@@ -359,7 +362,9 @@ const transformQueries = joi.array().items(
         skip: joi.number().positive().integer().allow(0),
         limit: joi.number().positive().integer(),
       }),
-      $match: joi.object().pattern(/^/, joi.alternatives(booleanQuery, stringQuery, numberQuery, timeQuery, geoQuery, objectIdQuery)),
+      $match: joi
+        .object()
+        .pattern(/^/, joi.alternatives(booleanQuery, stringQuery, numberQuery, timeQuery, geoQuery, objectIdQuery)),
       $sort: joi.object().pattern(/^/, joi.number().integer().allow(-1, 1)).min(1),
       $unwind: pointer,
       $replaceRoot: pointer,

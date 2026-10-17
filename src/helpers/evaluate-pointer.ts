@@ -7,7 +7,6 @@ export function convertPointerToKey(pointer: string): string {
   return pointer.replace(/^\$/, '');
 }
 
-
 export function isPointer(pointer: string) {
   return typeof pointer === 'string' && pointer.startsWith(POINTER_PREFIX);
 }
@@ -26,4 +25,3 @@ export function ensurePointerData<T extends object>(pointer: any, source: T): T[
     return key in source ? source[key] : undefined;
   }
 }
-

@@ -50,10 +50,14 @@ export class StringHolder extends BaseDataHolder<string> {
             break;
           case '$concat':
             if (Array.isArray(oldValue)) {
-              data.value = oldValue.map((v: string) => v + data.value[action].delimiter + data.value[action].parts.join(data.value[action].delimiter));
+              data.value = oldValue.map(
+                (v: string) =>
+                  v + data.value[action].delimiter + data.value[action].parts.join(data.value[action].delimiter),
+              );
             } else {
               if (oldValue) {
-                data.value = oldValue + data.value[action].delimiter + data.value[action].parts.join(data.value[action].delimiter);
+                data.value =
+                  oldValue + data.value[action].delimiter + data.value[action].parts.join(data.value[action].delimiter);
               } else {
                 data.value = data.value[action];
               }

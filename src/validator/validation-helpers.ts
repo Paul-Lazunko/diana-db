@@ -98,7 +98,8 @@ const validateTimeString = (data: any) => joi.string().isoDate().validate(data);
 
 const sortQueryValidator = (data: any) => sortQuery.validate(data);
 
-const configurationValidator = (options: any) => configurationOptions.validate(options, { allowUnknown: false, convert: true });
+const configurationValidator = (options: any) =>
+  configurationOptions.validate(options, { allowUnknown: false, convert: true });
 
 const autoRollbackValidator = (value: any) => {
   return joi

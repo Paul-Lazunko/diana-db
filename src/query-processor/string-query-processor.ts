@@ -1,74 +1,31 @@
-import { arrayConcatenation } from '@helper';
 import { BaseQueryProcessor } from './base-query-processor';
 
 export class StringQueryProcessor extends BaseQueryProcessor<string> {
   protected $regex(value: RegExp) {
-    const ids: string[][] = [];
-    const keys: string[] = Array.from(this.rawDataKeys.keys());
-    const compared: string[] = keys.filter((key: string) => key.match(value));
-    for (let i = 0; i < compared.length; i = i + 1) {
-      ids.push(this.rawDataKeys.get(compared[i]));
-    }
-    return arrayConcatenation(...ids);
+    return this.collect((key: string) => !!key.match(value));
   }
 
   protected $cn(value: string) {
-    const ids: string[][] = [];
-    const keys: string[] = Array.from(this.rawDataKeys.keys());
-    const compared: string[] = keys.filter((key: string) => key.includes(value));
-    for (let i = 0; i < compared.length; i = i + 1) {
-      ids.push(this.rawDataKeys.get(compared[i]));
-    }
-    return arrayConcatenation(...ids);
+    return this.collect((key: string) => key.includes(value));
   }
 
   protected $nc(value: string) {
-    const ids: string[][] = [];
-    const keys: string[] = Array.from(this.rawDataKeys.keys());
-    const compared: string[] = keys.filter((key: string) => !key.includes(value));
-    for (let i = 0; i < compared.length; i = i + 1) {
-      ids.push(this.rawDataKeys.get(compared[i]));
-    }
-    return arrayConcatenation(...ids);
+    return this.collect((key: string) => !key.includes(value));
   }
 
   protected $startsWith(value: string) {
-    const ids: string[][] = [];
-    const keys: string[] = Array.from(this.rawDataKeys.keys());
-    const compared: string[] = keys.filter((key: string) => key.startsWith(value));
-    for (let i = 0; i < compared.length; i = i + 1) {
-      ids.push(this.rawDataKeys.get(compared[i]));
-    }
-    return arrayConcatenation(...ids);
+    return this.collect((key: string) => key.startsWith(value));
   }
 
   protected $endsWith(value: string) {
-    const ids: string[][] = [];
-    const keys: string[] = Array.from(this.rawDataKeys.keys());
-    const compared: string[] = keys.filter((key: string) => key.endsWith(value));
-    for (let i = 0; i < compared.length; i = i + 1) {
-      ids.push(this.rawDataKeys.get(compared[i]));
-    }
-    return arrayConcatenation(...ids);
+    return this.collect((key: string) => key.endsWith(value));
   }
 
   protected $notStartsWith(value: string) {
-    const ids: string[][] = [];
-    const keys: string[] = Array.from(this.rawDataKeys.keys());
-    const compared: string[] = keys.filter((key: string) => !key.startsWith(value));
-    for (let i = 0; i < compared.length; i = i + 1) {
-      ids.push(this.rawDataKeys.get(compared[i]));
-    }
-    return arrayConcatenation(...ids);
+    return this.collect((key: string) => !key.startsWith(value));
   }
 
   protected $notEndsWith(value: string) {
-    const ids: string[][] = [];
-    const keys: string[] = Array.from(this.rawDataKeys.keys());
-    const compared: string[] = keys.filter((key: string) => !key.endsWith(value));
-    for (let i = 0; i < compared.length; i = i + 1) {
-      ids.push(this.rawDataKeys.get(compared[i]));
-    }
-    return arrayConcatenation(...ids);
+    return this.collect((key: string) => !key.endsWith(value));
   }
 }

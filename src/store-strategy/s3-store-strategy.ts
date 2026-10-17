@@ -14,7 +14,7 @@ export class S3StoreStrategy extends AbstractStoreStrategy {
   }
 
   async store(store: Datanautics, fileName: string) {
-    const writable = reactiveStreamFactory(this.process.bind(this), fileName,  logger.error);
+    const writable = reactiveStreamFactory(this.process.bind(this), fileName, logger.error);
     await store.store(writable);
   }
 

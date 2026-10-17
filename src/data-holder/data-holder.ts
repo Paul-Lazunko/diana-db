@@ -11,7 +11,7 @@ export interface DataHolder {
     filters: DataHolderMethodsParams<any>,
     updateData: DataHolderMethodsParams<any>,
     fieldDefinition?: NumberFieldDefinition,
-    skip?: boolean
+    skip?: boolean,
   ) => void;
   get: (params: string[], precision?: number) => { [key: string]: any };
   store: () => any;

@@ -1,7 +1,13 @@
 import { createReadStream, existsSync, readFileSync, watchFile } from 'fs';
 import { randomUUID } from 'crypto';
 import { config } from '@config';
-import { DatabaseAccess, ServerActions, StoreStrategy, DEFAULT_DIANA_DB_USER_FILE_NAME, STORE_EE_EVENT_NAME } from '@const';
+import {
+  DatabaseAccess,
+  ServerActions,
+  StoreStrategy,
+  DEFAULT_DIANA_DB_USER_FILE_NAME,
+  STORE_EE_EVENT_NAME,
+} from '@const';
 import { Request, User } from '@dto';
 import { logger } from '@logger';
 import { store } from '@store';
@@ -18,6 +24,7 @@ import { monitorEventEmitter } from '../event-emitter/monitor-event-emitter';
 import { restoreStrategies } from '@restore-strategy';
 import { Readable } from 'stream';
 import { touch } from '@helper';
+import { wal, WalEntry } from '../wal';
 
 const signals = [
   'SIGINT',
@@ -71,7 +78,16 @@ export class DianaDB {
   public async start() {
     logger.info(`Restoring databases using ${config.storeStrategy} strategy...`);
     await this.restore();
+    if (config.storeStrategy === StoreStrategy.LOCAL && config.wal.enabled) {
+      wal.open(config.dumpDirectory, { fsync: config.wal.fsync });
+      const replayed: number = wal.replay(
+        (entry: WalEntry) => this.applyWalEntry(entry),
+        (e: Error) => logger.error(ErrorFactory.restoreError(`write-ahead log entry skipped: ${e.message}`)),
+      );
+      logger.info(`Replayed ${replayed} write-ahead log entries`);
+    }
     logger.info('Databases have been restored successfully!');
+    // Writes a fresh snapshot right away, which also deletes the replayed log files.
     storeEventEmitter.emit(STORE_EE_EVENT_NAME);
     startDumps();
     for (const signal of signals) {
@@ -111,7 +127,88 @@ export class DianaDB {
       error: response.error,
     });
     response.error ? logger.error(entry as any) : logger.info(entry);
-    return this.server.response(response);
+    // Respond once the changes made by this request (if any) are on disk.
+    wal.whenDurable((error?: Error) => {
+      if (error) {
+        response.error = `The change was applied but could not be written to disk: ${error.message}`;
+        logger.error(ErrorFactory.storeError(error.message));
+      }
+      this.server.response(response);
+    });
+  }
+
+  protected getOrCreateDatabase(name: string): Database {
+    if (!this.databases.has(name)) {
+      this.databases.set(name, new Database({ name, dianaDB: this }));
+    }
+    return this.databases.get(name);
+  }
+
+  /** Re-applies one write-ahead log entry on top of the restored snapshot. Entries are idempotent. */
+  protected applyWalEntry(entry: WalEntry) {
+    const { op, db: dbName, c } = entry;
+    const db: Database | undefined = dbName ? this.databases.get(dbName) : undefined;
+    const collection = db?.collections.get(c);
+    switch (op) {
+      case 'createDatabase':
+        this.getOrCreateDatabase(dbName);
+        break;
+      case 'removeDatabase':
+        if (db) {
+          db.destroy();
+          this.databases.delete(dbName);
+          store.set(`db.${dbName}`, undefined);
+        }
+        break;
+      case 'migrateUp':
+        this.migrations[entry.name] = entry.at;
+        break;
+      case 'migrateDown':
+        delete this.migrations[entry.name];
+        break;
+      case 'createCollection': {
+        const target: Database = this.getOrCreateDatabase(dbName);
+        if (!target.collections.has(c)) {
+          target.createCollection(c, entry.schema);
+        }
+        break;
+      }
+      case 'updateCollection':
+        this.getOrCreateDatabase(dbName).updateCollection(c, entry.schema);
+        break;
+      case 'removeCollection':
+        db?.removeCollection(c);
+        break;
+      case 'lockCollection':
+        db?.lockCollectionSchema(c);
+        break;
+      case 'unlockCollection':
+        db?.unlockCollectionSchema(c);
+        break;
+      case 'addView':
+        collection?.createView(entry.view, entry.transformQueries);
+        break;
+      case 'removeView':
+        collection?.removeView(entry.view);
+        break;
+      case 'insert': {
+        const { _id, ...doc } = entry.doc;
+        if (collection && !collection.identifiers.has(_id)) {
+          collection.insert(doc, undefined, false, _id);
+        }
+        break;
+      }
+      case 'update':
+        for (const { _id, set } of entry.docs || []) {
+          if (collection?.identifiers.has(_id)) {
+            collection.update([{ _id: { $eq: _id } }], set, undefined, true);
+          }
+        }
+        break;
+      case 'remove':
+        collection?.remove([{ _id: { $in: entry.ids } }]);
+        break;
+    }
   }
 
   public store() {

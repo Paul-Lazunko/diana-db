@@ -16,6 +16,7 @@ import { store } from '@store';
 import { logger } from '@logger';
 import { userStore } from '@user-store';
 import { state } from '@state';
+import { wal } from '../wal';
 
 export class RequestController {
   protected databases: Map<string, Database>;
@@ -134,6 +135,7 @@ export class RequestController {
           if (!dbExists) {
             this.databases.set(database, new Database({ name: database, dianaDB: this.dianaDB }));
             userStore.set(`user.${user}.db.${database}`, DatabaseAccess.MODIFY);
+            wal.append({ op: 'createDatabase', db: database });
           }
           response.data = { database, action: 'created' };
           break;
@@ -142,6 +144,7 @@ export class RequestController {
             this.databases.get(database).destroy();
             this.databases.delete(database);
             store.set(`db.${database}`, undefined);
+            wal.append({ op: 'removeDatabase', db: database });
           }
           response.data = { database, action: 'removed' };
           break;
@@ -151,6 +154,7 @@ export class RequestController {
         case ClientActions.MIGRATE_UP:
           if (migration) {
             this.dianaDB.migrations[migration] = Date.now();
+            wal.append({ op: 'migrateUp', name: migration, at: this.dianaDB.migrations[migration] });
             response.data = { migration: { name: migration, status: MigrationStatus.UP } };
             this.dianaDB.store();
           }
@@ -158,33 +162,41 @@ export class RequestController {
         case ClientActions.MIGRATE_DOWN:
           if (migration) {
             delete this.dianaDB.migrations[migration];
+            wal.append({ op: 'migrateDown', name: migration });
             response.data = { migration: { name: migration, status: MigrationStatus.DOWN } };
             this.dianaDB.store();
           }
           break;
         case ClientActions.ADD_VIEW:
           db.collections.get(collection).createView(view, transformQueries);
+          wal.append({ op: 'addView', db: database, c: collection, view, transformQueries });
           response.data = { view, action: 'created' };
           break;
         case ClientActions.REMOVE_VIEW:
           db.collections.get(collection).removeView(view);
+          wal.append({ op: 'removeView', db: database, c: collection, view });
           response.data = { view, action: 'removed' };
           break;
         case ClientActions.ADD_COLLECTION:
         case ClientActions.CREATE_COLLECTION:
+          const createdSchema: any = JSON.parse(JSON.stringify(schema || {})); // createCollection modifies schema
           db.createCollection(collection, schema);
+          wal.append({ op: 'createCollection', db: database, c: collection, schema: createdSchema });
           response.data = { collection, action: 'created' };
           break;
         case ClientActions.UPDATE_COLLECTION:
           if (db.isCollectionSchemaLocked(collection)) {
             response.error = `Schema of the collection'${collection}' is locked`;
           } else {
+            const updatedSchema: any = JSON.parse(JSON.stringify(schema || {}));
             db.updateCollection(collection, schema);
+            wal.append({ op: 'updateCollection', db: database, c: collection, schema: updatedSchema });
             response.data = { collection, action: 'updated' };
           }
           break;
         case ClientActions.LOCK_COLLECTION_SCHEMA:
           db.lockCollectionSchema(collection);
+          wal.append({ op: 'lockCollection', db: database, c: collection });
           response.data = { collection, locked: true };
           break;
         case ClientActions.GET_COLLECTION_VIEWS:
@@ -196,17 +208,22 @@ export class RequestController {
           break;
         case ClientActions.UNLOCK_COLLECTION_SCHEMA:
           db.unlockCollectionSchema(collection);
+          wal.append({ op: 'unlockCollection', db: database, c: collection });
           response.data = { collection: collection, locked: false };
           break;
         case ClientActions.REMOVE_COLLECTION:
           db.removeCollection(collection);
+          wal.append({ op: 'removeCollection', db: database, c: collection });
           response.data = { collection, action: 'removed' };
           break;
         case ClientActions.GET_COLLECTION_NAMES:
           response.data = db.getCollectionNames();
           break;
         case ClientActions.GET_COLLECTION_SCHEMA:
-          response.data = { schema: db.getCollectionSchema(collection), locked: db.getCollectionSchemaLock(collection) }
+          response.data = {
+            schema: db.getCollectionSchema(collection),
+            locked: db.getCollectionSchemaLock(collection),
+          };
           break;
         case ClientActions.FIND:
           const resultFind: any[] = db.collections
@@ -289,6 +306,7 @@ export class RequestController {
     if (name && !this.databases.has(name)) {
       const database = new Database({ name, dianaDB: this.dianaDB });
       this.databases.set(name, database);
+      wal.append({ op: 'createDatabase', db: name });
       store.set(`db.${name}`, database.store());
     }
     return this.databases.get(name);

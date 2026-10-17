@@ -1,7 +1,7 @@
 type ComparableValue = {
   _c: number;
   item: any;
-}
+};
 
 const mathCallbacksArgs: Record<'min' | 'max', any[]> = {
   max: [
@@ -53,33 +53,31 @@ export function findValueWithMode(items: any[], mode: 'min' | 'max') {
     return;
   }
   const callbackArgs = mathCallbacksArgs[mode];
-  const cItems =  items
-    .map((item) => {
-      let _c;
-      switch (typeof item) {
-        case 'bigint':
-        case 'number':
-          _c = item;
-          break;
-        case 'boolean':
-          _c = item ? 1 : 0;
-          break;
-        case 'string':
-          if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(item)) {
-            _c = new Date(item).getTime();
-          }
-          else {
-            _c = item.length;
-          }
-          break;
-        default:
-          _c = mode === 'max' ? -Infinity : Infinity;
-          break;
-      }
-      return { _c, item };
-    })
+  const cItems = items.map((item) => {
+    let _c;
+    switch (typeof item) {
+      case 'bigint':
+      case 'number':
+        _c = item;
+        break;
+      case 'boolean':
+        _c = item ? 1 : 0;
+        break;
+      case 'string':
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(item)) {
+          _c = new Date(item).getTime();
+        } else {
+          _c = item.length;
+        }
+        break;
+      default:
+        _c = mode === 'max' ? -Infinity : Infinity;
+        break;
+    }
+    return { _c, item };
+  });
 
   const searchValue = cItems.reduce(callbackArgs[0], callbackArgs[1]);
 
-  return cItems.filter((cItem) => cItem._c === searchValue).map(cItem => cItem.item)
+  return cItems.filter((cItem) => cItem._c === searchValue).map((cItem) => cItem.item);
 }

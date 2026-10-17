@@ -42,6 +42,19 @@ export const config: Record<string, any> = {
       secretAccessKey: process.env.DIANA_DB_STORE_S3_SECRET_ACCESS_KEY,
     },
   },
+  // Write-ahead log (local storage only): changes are fsynced before the response is sent.
+  wal: {
+    enabled: ![
+      '0',
+      'no',
+      'false',
+    ].includes(process.env.DIANA_DB_WAL?.toString().toLowerCase()),
+    fsync: ![
+      '0',
+      'no',
+      'false',
+    ].includes(process.env.DIANA_DB_WAL_FSYNC?.toString().toLowerCase()),
+  },
   tls: {
     cert: process.env.DIANA_DB_SSL_CERT_FILE,
     key: process.env.DIANA_DB_SSL_KEY_FILE,

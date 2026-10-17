@@ -164,7 +164,7 @@ export class Database {
       if (this.names.has(collection)) {
         this.names.delete(collection);
       }
-      this.collections.delete(collection)
+      this.collections.delete(collection);
     }
   }
 

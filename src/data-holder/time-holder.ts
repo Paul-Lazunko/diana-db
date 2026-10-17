@@ -4,21 +4,25 @@ import { TimeQueryProcessor } from '@query-processor';
 import { addUnitOfTime, getDayOfYear, getWeek, toEndOf, toLastWeekday, toNextWeekday, toStartOf } from '@helper';
 import { TimeParams, DataHolderMethodsParams } from '@parameters';
 import { TIME_PARAMS, Types } from '@const';
+import { IdEntry, addId, deleteId, entryFromStored, forEachId, idsOf } from '../helpers/id-entry';
 
 export class TimeHolder implements DataHolder {
   protected type: Types = Types.TIME;
   private identifiersMap: Map<string, Map<string, number | string>>;
-  private year: Map<number, string[]>;
-  private month: Map<number, string[]>;
-  private date: Map<number, string[]>;
-  private hours: Map<number, string[]>;
-  private minutes: Map<number, string[]>;
-  private seconds: Map<number, string[]>;
-  private week: Map<number, string[]>;
-  private dayOfWeek: Map<number, string[]>;
-  private dayOfYear: Map<number, string[]>;
-  private timestamp: Map<number, string[]>;
-  private raw: Map<string, string[]>;
+  // One index per time part: value -> ids. Sets give O(1) removal.
+  private year: Map<number, IdEntry>;
+  private month: Map<number, IdEntry>;
+  private date: Map<number, IdEntry>;
+  private hours: Map<number, IdEntry>;
+  private minutes: Map<number, IdEntry>;
+  private seconds: Map<number, IdEntry>;
+  private week: Map<number, IdEntry>;
+  private dayOfWeek: Map<number, IdEntry>;
+  private dayOfYear: Map<number, IdEntry>;
+  private timestamp: Map<number, IdEntry>;
+  private raw: Map<string, IdEntry>;
+  // id -> the time parts it was indexed under (several for array fields), so removal touches only those entries.
+  private valuesById: Map<string, TimeParams[]>;
   private identifiers: Set<string>;
   private readonly queryProcessorConstructor: any;
   private queryProcessor: TimeQueryProcessor;
@@ -40,19 +44,22 @@ export class TimeHolder implements DataHolder {
   }
 
   public init() {
-    this.year = new Map<number, string[]>();
-    this.month = new Map<number, string[]>();
-    this.date = new Map<number, string[]>();
-    this.hours = new Map<number, string[]>();
-    this.minutes = new Map<number, string[]>();
-    this.seconds = new Map<number, string[]>();
-    this.week = new Map<number, string[]>();
-    this.dayOfWeek = new Map<number, string[]>();
-    this.dayOfYear = new Map<number, string[]>();
-    this.timestamp = new Map<number, string[]>();
-    this.raw = new Map<string, string[]>();
+    this.year = new Map<number, IdEntry>();
+    this.month = new Map<number, IdEntry>();
+    this.date = new Map<number, IdEntry>();
+    this.hours = new Map<number, IdEntry>();
+    this.minutes = new Map<number, IdEntry>();
+    this.seconds = new Map<number, IdEntry>();
+    this.week = new Map<number, IdEntry>();
+    this.dayOfWeek = new Map<number, IdEntry>();
+    this.dayOfYear = new Map<number, IdEntry>();
+    this.timestamp = new Map<number, IdEntry>();
+    this.raw = new Map<string, IdEntry>();
     this.identifiers = new Set<string>();
+    this.valuesById = new Map<string, TimeParams[]>();
     this.identifiersMap = new Map<string, Map<string, number | string>>();
+    // Created up front: the query processor captures these maps once, so a lazily created map was never seen by it.
+    TIME_PARAMS.forEach((param: string) => this.identifiersMap.set(param, new Map<string, number | string>()));
     this.initQueryProcessor();
   }
 
@@ -90,7 +97,6 @@ export class TimeHolder implements DataHolder {
   }
 
   protected processDate(dateString: string | number): TimeParams {
-
     const processedValue = new Date(dateString);
     const year: number = processedValue.getFullYear();
     const month: number = processedValue.getMonth();
@@ -121,31 +127,42 @@ export class TimeHolder implements DataHolder {
   protected setData(data: TimeParams, identifier: string) {
     for (const param in data) {
       if (this[param]) {
-        if (this[param].has(data[param])) {
-          this[param].get(data[param]).push(identifier);
-        } else {
-          this[param].set(data[param], [identifier]);
-        }
-        if (this.identifiersMap.has(param)) {
-          this.identifiersMap.get(param).set(identifier, data[param]);
-        } else {
+        this.indexKey(param, data[param], identifier);
+        if (!this.identifiersMap.has(param)) {
           this.identifiersMap.set(param, new Map<string, number | string>());
-          this.identifiersMap.get(param).set(identifier, data[param]);
         }
+        this.identifiersMap.get(param).set(identifier, data[param]);
       }
+    }
+    const values: TimeParams[] = this.valuesById.get(identifier);
+    if (values) {
+      values.push(data);
+    } else {
+      this.valuesById.set(identifier, [data]);
     }
   }
 
+  protected indexKey(param: string, key: number | string, identifier: string) {
+    addId(this[param], key, identifier);
+  }
+
+  /** Removes the id from the index entries it was stored under, instead of scanning every key of 11 indexes. */
   remove(params: DataHolderMethodsParams<string>) {
     const { identifier } = params;
     this.identifiers.delete(identifier);
+    const values: TimeParams[] = this.valuesById.get(identifier);
+    this.valuesById.delete(identifier);
     TIME_PARAMS.forEach((param: string) => {
-      // for...of instead of `while (value)`: keys such as hour 0 or weekday 0 ended the loop early.
-      const values: any[] =  Array.from(this[param].keys());
-      for (const value of values) {
-        const data = this[param].get(value);
-        if (Array.isArray(data) && data.includes(identifier)) {
-          data.splice(data.indexOf(identifier), 1);
+      let found: boolean = !!values;
+      for (const timeParams of values || []) {
+        if (!deleteId(this[param], timeParams[param], identifier)) {
+          found = false;
+        }
+      }
+      if (!found) {
+        // Entry not where expected (e.g. restored under a different time zone): scan this index.
+        for (const key of Array.from(this[param].keys())) {
+          deleteId(this[param], key, identifier);
         }
       }
       this.identifiersMap.get(param)?.delete(identifier);
@@ -216,8 +233,8 @@ export class TimeHolder implements DataHolder {
     };
     for (const key in result) {
       if (this[key] instanceof Map) {
-        this[key].forEach((item: string[], k: number) => {
-          result[key][k] = item;
+        this[key].forEach((entry: IdEntry, k: number) => {
+          result[key][k] = idsOf(entry);
         });
       }
     }
@@ -228,7 +245,8 @@ export class TimeHolder implements DataHolder {
         result.identifiersMap[j][k] = v;
       });
     });
-    result.identifiers = this.identifiers;
+    // Never read; kept empty so the dump format is unchanged.
+    result.identifiers = [];
     return result;
   }
 
@@ -266,12 +284,29 @@ export class TimeHolder implements DataHolder {
     ].forEach((item: { [key: string]: any }) => {
       const key = Object.keys(item)[0];
       for (const k in data[key]) {
+        const entry: IdEntry = entryFromStored(data[key][k]);
+        if (entry === undefined) {
+          continue;
+        }
         if (key === 'raw') {
-          this[key].set(k, data[key][k]);
+          this[key].set(k, entry);
         } else {
-          this[key].set(parseInt(k, 10), data[key][k]);
+          this[key].set(parseInt(k, 10), entry);
         }
       }
+    });
+    // Rebuild id -> time parts from the raw values (not stored in the dump).
+    this.valuesById.clear();
+    this.raw.forEach((entry: IdEntry, rawValue: string) => {
+      const timeParams: TimeParams = this.processDate(rawValue);
+      forEachId(entry, (id: string) => {
+        const values: TimeParams[] = this.valuesById.get(id);
+        if (values) {
+          values.push(timeParams);
+        } else {
+          this.valuesById.set(id, [timeParams]);
+        }
+      });
     });
     for (const key in identifiersMap) {
       this.identifiersMap.set(key, new Map<string, string>());
@@ -279,6 +314,11 @@ export class TimeHolder implements DataHolder {
         this.identifiersMap.get(key).set(k, identifiersMap[key][k]);
       }
     }
+    TIME_PARAMS.forEach((param: string) => {
+      if (!this.identifiersMap.has(param)) {
+        this.identifiersMap.set(param, new Map<string, number | string>());
+      }
+    });
     this.initQueryProcessor();
   }
 }
