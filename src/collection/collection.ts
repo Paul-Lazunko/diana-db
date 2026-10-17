@@ -216,6 +216,10 @@ export class Collection<T> {
               dataHolder = type.data;
               transactionHolder = type.transactions;
               data = transactionHolder.get(this.name).get(key).get(transactionId).get([inserted[i]], (this.schema[key] as NumberFieldDefinition).precision);
+              // Fields the document never set are skipped, as in a plain insert (undefined TIME values threw here).
+              if (data[inserted[i]] === undefined) {
+                break;
+              }
               dataHolder.get(this.name).get(key).create({
                   identifier: inserted[i],
                   value: data[inserted[i]],
@@ -228,6 +232,10 @@ export class Collection<T> {
               dataHolder = type.data;
               transactionHolder = type.transactions;
               data = transactionHolder.get(this.name).get(key).get(transactionId).get([inserted[i]], (this.schema[key] as NumberFieldDefinition).precision);
+              // Fields the document never set are skipped, as in a plain insert (undefined TIME values threw here).
+              if (data[inserted[i]] === undefined) {
+                break;
+              }
               dataHolder.get(this.name).get(key).create({
                   identifier: inserted[i],
                   value: data[inserted[i]],
@@ -288,6 +296,31 @@ export class Collection<T> {
     }
   }
 
+  /** Throws if committing would duplicate a unique value that was committed after the transaction wrote it. */
+  public validateTransactionCommit(transactionId: string) {
+    if (!this.transactionsData.has(transactionId)) {
+      return;
+    }
+    const { inserted } = this.transactionsData.get(transactionId);
+    for (const key in this.schema) {
+      if (!this.schema[key].unique || key === '_id') {
+        continue;
+      }
+      const type: Field = this.db.Types.get(this.schema[key].type);
+      const committed: any = type.data.get(this.name).get(key);
+      const pending: any = type.transactions.get(this.name).get(key).get(transactionId);
+      if (typeof committed?.hasValue !== 'function' || typeof pending?.getRawValue !== 'function') {
+        continue;
+      }
+      for (const id of inserted) {
+        const value = pending.getRawValue(id);
+        if (value !== undefined && committed.hasValue(value)) {
+          throw ErrorFactory.schemaError(`property '${key}' with value ${value} is used already`);
+        }
+      }
+    }
+  }
+
   public commitTransaction(transactionId: string) {
     this.clearTransactionTimer(transactionId);
     this.insertTransactionItems(transactionId);
@@ -314,11 +347,15 @@ export class Collection<T> {
       // data[key] - possible pointer
       if (this.schema[key].unique && Object.prototype.hasOwnProperty.apply(data, [key])) {
         const type = this.db.Types.get(this.schema[key].type);
-        const dataHolder = transactionExists
-          ? type.transactions.get(this.name).get(key).get(transactionId)
-          : type.data.get(this.name).get(key);
-        if (typeof dataHolder.hasValue === 'function' && dataHolder.hasValue(data[key])) {
-          throw ErrorFactory.schemaError(`property '${key}' with value ${data[key]} is used already`);
+        // Committed data is always checked; inside a transaction its pending data is checked as well.
+        const holders = [type.data.get(this.name).get(key)];
+        if (transactionExists) {
+          holders.push(type.transactions.get(this.name).get(key).get(transactionId));
+        }
+        for (const dataHolder of holders) {
+          if (typeof dataHolder.hasValue === 'function' && dataHolder.hasValue(data[key])) {
+            throw ErrorFactory.schemaError(`property '${key}' with value ${data[key]} is used already`);
+          }
         }
       }
       if (update && this.schema[key].mutable === false && Object.prototype.hasOwnProperty.apply(data, [key])) {
@@ -461,7 +498,7 @@ export class Collection<T> {
       for (const query of filterQueries) {
         for (const key in query) {
           if (this.schema[key]?.type === Types.NUMBER) {
-            const precision = skipConversions ? 0 : (this.schema[key] as NumberFieldDefinition)?.precision;
+            const precision = skipConversions ? undefined : (this.schema[key] as NumberFieldDefinition)?.precision;
             if (typeof query[key] === 'object') {
               for (const k in query[key]) {
                 switch (k) {
@@ -524,26 +561,15 @@ export class Collection<T> {
       this.transactionsData.get(transactionId).removed.push(...items.map((item: any) => item._id));
     } else {
       for (const item of items) {
-        let doRemove: boolean = true;
-        this.transactionsData.forEach((td: TransactionsData) => {
-          const { updated } = td;
-          updated.forEach((item: any, id: string) => {
-            if (id === item._id) {
-              doRemove = false;
-            }
-          });
-        });
-        if (doRemove) {
-          this.identifiers.delete(item._id);
-          this.removeRefs(item._id);
-          for (const key in this.schema) {
-            const propertyType: Types = this.schema[key].type;
-            const type: Field =
-              propertyType === Types.ARRAY
-                ? this.db.Types.get((this.schema[key] as ArrayFieldDefinition).items)
-                : this.db.Types.get(this.schema[key].type);
-            type.data.get(this.name).get(key).remove({ identifier: item._id, value: item[key] });
-          }
+        this.identifiers.delete(item._id);
+        this.removeRefs(item._id);
+        for (const key in this.schema) {
+          const propertyType: Types = this.schema[key].type;
+          const type: Field =
+            propertyType === Types.ARRAY
+              ? this.db.Types.get((this.schema[key] as ArrayFieldDefinition).items)
+              : this.db.Types.get(this.schema[key].type);
+          type.data.get(this.name).get(key).remove({ identifier: item._id, value: item[key] });
         }
       }
     }
@@ -627,12 +653,13 @@ export class Collection<T> {
     const transactionExists: boolean = transactionId && this.transactionsData.has(transactionId);
     for (const item of items) {
       let isUpdated: boolean = false;
-      if (transactionExists) {
+      if (transactionExists && !this.transactionsData.get(transactionId).updated.has(item._id)) {
         this.transactionsData.get(transactionId).updated.set(item._id, {});
       }
       for (const key in updateData) {
+        // Pointers are evaluated per document; writing the result back into updateData
+        // made every following document get the first document's value.
         const evaluatedValue = isPointer(updateData[key]) ? evaluatePointer(updateData[key], item) : updateData[key];
-        updateData[key] = evaluatedValue;
         if (this.schema[key] && item && item[key] !== evaluatedValue) {
           const propertyType: Types = this.schema[key].type;
           const type: Field =
@@ -819,7 +846,7 @@ export class Collection<T> {
         } else {
           if (this.schema[key]?.type === Types.ARRAY) {
             item[key] = item[key] || [];
-            if (data[key][_id]) {
+            if (data[key][_id] !== undefined) {
               if (Array.isArray(data[key][_id])) {
                 item[key].push(...data[key][_id]);
               } else {
@@ -827,7 +854,7 @@ export class Collection<T> {
               }
             }
           } else {
-            if (data[key][_id]) {
+            if (data[key][_id] !== undefined) {
               item[key] = data[key][_id];
             }
           }
@@ -841,7 +868,7 @@ export class Collection<T> {
         for (const key in transactionsData) {
           if (this.schema[key]?.type === Types.ARRAY) {
             item[key] = item[key] || [];
-            if (transactionsData[key][_id]) {
+            if (transactionsData[key][_id] !== undefined) {
               if (Array.isArray(transactionsData[key][_id])) {
                 item[key].push(...transactionsData[key][_id]);
               } else {
@@ -849,7 +876,7 @@ export class Collection<T> {
               }
             }
           } else {
-            if (transactionsData[key][_id]) {
+            if (transactionsData[key][_id] !== undefined) {
               item[key] = transactionsData[key][_id];
             }
           }
@@ -863,42 +890,15 @@ export class Collection<T> {
     }
     if (sortQuery) {
       const keys: string[] = Object.keys(sortQuery);
-      for (let i = 0; i < keys.length; i = i + 1) {
-        const key: string = keys[i];
-        const previousKey: string = keys[i - 1];
-        result.sort((a: any, b: any) => {
-          if (i === 0 || a[previousKey] === b[previousKey]) {
-            let compareResult: number;
-            switch(this.schema[key]?.type) {
-              case Types.TIME:
-                compareResult = Math.sign(new Date(a[key]).getTime() - new Date(b[key]).getTime());
-                break;
-              case Types.OBJECT_ID:
-              case Types.REFERENCE:
-                compareResult = Math.sign(parseInt(a[key].split('-')[2], 16) - parseInt(b[key].split('-')[2], 16))
-                break;
-              case Types.STRING:
-                compareResult = a[key].localeCompare(b[key]);
-                break;
-              case Types.NUMBER:
-                compareResult =  Math.sign(a[key] - b[key]);
-                break;
-              case Types.ARRAY:
-                compareResult =  Math.sign(a.length - b.length);
-                break;
-              case Types.BOOLEAN:
-                compareResult =  a ? b ? 0 : 1 : b ? -1 : 0;
-                break;
-              default:
-                return 0;
-            }
-            if (sortQuery[key] === -1) {
-              return compareResult * -1
-            }
-            return compareResult
+      result.sort((a: any, b: any) => {
+        for (const key of keys) {
+          const compareResult: number = this.compareValues(key, a[key], b[key]);
+          if (compareResult !== 0) {
+            return sortQuery[key] === -1 ? -compareResult : compareResult;
           }
-        });
-      }
+        }
+        return 0;
+      });
     }
     if (skip) {
       result = result.slice(skip, result.length);
@@ -908,6 +908,38 @@ export class Collection<T> {
     }
 
     return result;
+  }
+
+  /** Ascending comparison of two values of a schema field; missing values sort first. */
+  protected compareValues(key: string, a: any, b: any): number {
+    if (a === b) {
+      return 0;
+    }
+    if (a === undefined || a === null) {
+      return -1;
+    }
+    if (b === undefined || b === null) {
+      return 1;
+    }
+    switch (this.schema[key]?.type) {
+      case Types.TIME:
+        return Math.sign(new Date(a).getTime() - new Date(b).getTime());
+      case Types.OBJECT_ID:
+      case Types.REFERENCE: {
+        const result: number = Math.sign(parseInt(String(a).split('-')[2], 16) - parseInt(String(b).split('-')[2], 16));
+        return Number.isNaN(result) ? String(a).localeCompare(String(b)) : result;
+      }
+      case Types.STRING:
+        return String(a).localeCompare(String(b));
+      case Types.NUMBER:
+        return Math.sign(a - b);
+      case Types.ARRAY:
+        return Math.sign((a?.length || 0) - (b?.length || 0));
+      case Types.BOOLEAN:
+        return (a ? 1 : 0) - (b ? 1 : 0);
+      default:
+        return 0;
+    }
   }
 
   protected removeRefs(id: string) {
@@ -950,7 +982,7 @@ export class Collection<T> {
       const filterQuery: any = {};
       filterQuery[key] = {
         $timestamp: {
-          $lte: ts,
+          $lte: ts - (this.schema[key] as TimeFieldDefinition).ttl,
         },
       };
       this.remove([filterQuery]);
@@ -995,7 +1027,4 @@ export class Collection<T> {
     }
     this.transactionsLocksGroups.delete(transactionId);
   }
-
-
-
 }

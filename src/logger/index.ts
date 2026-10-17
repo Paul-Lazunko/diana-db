@@ -9,7 +9,7 @@ const eventEmitter: EventEmitter = new EventEmitter();
 if (config.logger === 'winston') {
   const logsDir = config.logsDirectory;
 
-  if (!logsDir) {
+  if (logsDir) {
     mkdirSync(logsDir, { recursive: true });
   }
 

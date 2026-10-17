@@ -15,7 +15,7 @@ export class StringQueryProcessor extends BaseQueryProcessor<string> {
   protected $cn(value: string) {
     const ids: string[][] = [];
     const keys: string[] = Array.from(this.rawDataKeys.keys());
-    const compared: string[] = keys.filter((key: string) => key.match(value));
+    const compared: string[] = keys.filter((key: string) => key.includes(value));
     for (let i = 0; i < compared.length; i = i + 1) {
       ids.push(this.rawDataKeys.get(compared[i]));
     }
@@ -25,7 +25,7 @@ export class StringQueryProcessor extends BaseQueryProcessor<string> {
   protected $nc(value: string) {
     const ids: string[][] = [];
     const keys: string[] = Array.from(this.rawDataKeys.keys());
-    const compared: string[] = keys.filter((key: string) => !key.match(value));
+    const compared: string[] = keys.filter((key: string) => !key.includes(value));
     for (let i = 0; i < compared.length; i = i + 1) {
       ids.push(this.rawDataKeys.get(compared[i]));
     }

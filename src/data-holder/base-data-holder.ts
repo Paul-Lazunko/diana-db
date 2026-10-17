@@ -82,11 +82,43 @@ export class BaseDataHolder<T> implements DataHolder {
     }
   }
 
+  public getRawValue(identifier: string): T | T[] {
+    return this.rawDataValues.get(identifier);
+  }
+
+  /**
+   * Removes the identifier using its stored value(s) to find the index entries,
+   * instead of scanning every distinct value of the field.
+   */
   public remove(params: DataHolderMethodsParams<T>) {
-    const { identifier, value } = params;
+    const { identifier } = params;
     this.identifiers.delete(identifier);
+    const stored = this.rawDataValues.get(identifier);
     this.rawDataValues.delete(identifier);
-    for (const key of this.rawDataKeys.keys()) {
+    if (stored === undefined) {
+      return;
+    }
+    const values: T[] = Array.isArray(stored) ? stored : [stored];
+    for (const value of new Set(values)) {
+      const ids = this.rawDataKeys.get(value);
+      if (!Array.isArray(ids) || !ids.includes(identifier)) {
+        // Index key and stored value disagree (e.g. a dump from an older version): fall back to a full scan.
+        this.removeFromAllKeys(identifier);
+        return;
+      }
+      let index: number = ids.indexOf(identifier);
+      while (index !== -1) {
+        ids.splice(index, 1);
+        index = ids.indexOf(identifier);
+      }
+      if (!ids.length) {
+        this.rawDataKeys.delete(value);
+      }
+    }
+  }
+
+  protected removeFromAllKeys(identifier: string) {
+    for (const key of Array.from(this.rawDataKeys.keys())) {
       const item = this.rawDataKeys.get(key);
       if (Array.isArray(item)) {
         if (item.includes(identifier)) {
@@ -158,8 +190,9 @@ export class BaseDataHolder<T> implements DataHolder {
       let k: any = key.trim();
       if (this.type === Types.BOOLEAN && /^(true|false)$/.test(k)) {
         k = k === 'true';
-      } else if (this.type === Types.NUMBER && /^(\d+)$/.test(k)) {
-        k = parseInt(k, 10);
+      } else if (this.type === Types.NUMBER && /^-?\d+(\.\d+)?(e[+-]?\d+)?$/i.test(k)) {
+        // Negative and fractional keys used to stay strings and stopped matching equality queries.
+        k = Number(k);
       } else if (this.type === Types.REFERENCE && /^undefined$/.test(k)) {
         continue;
       }

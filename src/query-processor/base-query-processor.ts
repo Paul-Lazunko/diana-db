@@ -20,31 +20,33 @@ export class BaseQueryProcessor<T> extends AbstractQueryProcessor {
   }
 
   $eq(value: T) {
-    const keys: T[] = Array.from(this.rawDataKeys.keys());
-    const compared: T[] = keys.filter((key: T) => (key as T) === value);
-    return compared.length ? this.rawDataKeys.get(compared[0]) : [];
+    return this.rawDataKeys.get(value) || [];
   }
 
   $ne(value: T) {
-    const keys: T[] = Array.from(this.rawDataKeys.keys());
-    const compared: T[] = keys.filter((key: T) => key !== value);
-    return compared.length ? this.rawDataKeys.get(compared[0]) : [];
+    const ids: string[][] = [];
+    this.rawDataKeys.forEach((items: string[], key: T) => {
+      if (key !== value) {
+        ids.push(items);
+      }
+    });
+    return arrayConcatenation(...ids);
   }
 
   protected $in(values: T[]) {
-    const data: string[] = [];
+    const data: Set<string> = new Set<string>();
     for (let i = 0; i < values.length; i = i + 1) {
-      if (this.rawDataKeys.has(values[i])) {
-        const items: string[] = this.rawDataKeys.get(values[i]);
-        items.filter((item: string) => !data.includes(item)).forEach((item: string) => data.push(item));
+      const items: string[] = this.rawDataKeys.get(values[i]);
+      if (items) {
+        items.forEach((item: string) => data.add(item));
       }
     }
-    return data;
+    return Array.from(data);
   }
 
   protected $nin(values: T[]) {
-    const ids: string[] = this.$in(values);
-    return Array.from(this.rawDataValues.keys()).filter((identifier: string) => !ids.includes(identifier));
+    const ids: Set<string> = new Set<string>(this.$in(values));
+    return Array.from(this.rawDataValues.keys()).filter((identifier: string) => !ids.has(identifier));
   }
 
   protected $gte(value: T) {

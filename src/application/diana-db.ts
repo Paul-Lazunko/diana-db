@@ -1,12 +1,12 @@
 import { createReadStream, existsSync, readFileSync, watchFile } from 'fs';
 import { randomUUID } from 'crypto';
 import { config } from '@config';
-import { ServerActions, StoreStrategy, DEFAULT_DIANA_DB_USER_FILE_NAME, STORE_EE_EVENT_NAME } from '@const';
+import { DatabaseAccess, ServerActions, StoreStrategy, DEFAULT_DIANA_DB_USER_FILE_NAME, STORE_EE_EVENT_NAME } from '@const';
 import { Request, User } from '@dto';
 import { logger } from '@logger';
 import { store } from '@store';
 import { state } from '@state';
-import { addRootHandler, publishEventEmitter, storeEventEmitter } from '@event-emitter';
+import { addRootHandler, persist, publishEventEmitter, startDumps, storeEventEmitter } from '@event-emitter';
 import { DianaDbServer } from '@server';
 import { Database } from '@database';
 import { RequestController } from '@controller';
@@ -44,8 +44,10 @@ export class DianaDB {
       ssl.key = readFileSync(config.tls.key);
     }
     if (config.tls.ca && existsSync(config.tls.ca)) {
-      ssl.key = readFileSync(config.tls.ca);
+      ssl.ca = readFileSync(config.tls.ca);
     }
+    ssl.requestCert = config.tls.requestCert;
+    ssl.rejectUnauthorized = config.tls.rejectUnauthorized;
     this.server = new DianaDbServer({
       port: config.port,
       ssl,
@@ -71,6 +73,10 @@ export class DianaDB {
     await this.restore();
     logger.info('Databases have been restored successfully!');
     storeEventEmitter.emit(STORE_EE_EVENT_NAME);
+    startDumps();
+    for (const signal of signals) {
+      process.once(signal, () => this.shutdown(signal));
+    }
     this.server.start();
     monitorEventEmitter.emit('monitor');
   }
@@ -79,10 +85,32 @@ export class DianaDB {
     this.server.stop();
   }
 
+  /** Stops accepting requests, saves every database and exits. */
+  public async shutdown(signal: string) {
+    logger.info(`Received ${signal}, saving databases before exit...`);
+    this.server.stop();
+    try {
+      await persist();
+      logger.info('Databases have been saved');
+    } catch (e) {
+      logger.error(ErrorFactory.storeError(e.message));
+    }
+    process.exit(0);
+  }
+
   protected processRequest(request: Request) {
-    logger.info(JSON.stringify(request));
     const response = this.controller.processRequest(request);
-    response.error ? logger.error(JSON.stringify(response) as any) : logger.info(JSON.stringify(response));
+    // Log metadata only: full requests and responses contain document data.
+    const entry = JSON.stringify({
+      requestId: request?.requestId,
+      user: request?.user,
+      action: request?.action,
+      database: request?.database,
+      collection: request?.collection,
+      executionTime: response.executionTime,
+      error: response.error,
+    });
+    response.error ? logger.error(entry as any) : logger.info(entry);
     return this.server.response(response);
   }
 
@@ -146,6 +174,12 @@ export class DianaDB {
     const sockets: string[] = Array.from(this.server.subscribers);
     const subscribersCount = sockets.length;
     for (let i = 0; i < subscribersCount; i = i + 1) {
+      // Only send updates of databases the subscriber is allowed to read.
+      const user: string = this.server.getSocketUser(sockets[i]);
+      const access = userStore.get(`user.${user}.db.${databaseUpdate.database}`);
+      if (!user || !access || parseInt(access, 10) < DatabaseAccess.READ) {
+        continue;
+      }
       this.server.response({
         action: ServerActions.PUBLISH,
         data: databaseUpdate,

@@ -140,16 +140,15 @@ export class TimeHolder implements DataHolder {
     const { identifier } = params;
     this.identifiers.delete(identifier);
     TIME_PARAMS.forEach((param: string) => {
-      const keys = this[param].keys();
-      let value: any = true;
-      while (value) {
-        value = keys.next().value;
+      // for...of instead of `while (value)`: keys such as hour 0 or weekday 0 ended the loop early.
+      const values: any[] =  Array.from(this[param].keys());
+      for (const value of values) {
         const data = this[param].get(value);
         if (Array.isArray(data) && data.includes(identifier)) {
           data.splice(data.indexOf(identifier), 1);
         }
-        this.identifiersMap.get(param).delete(identifier);
       }
+      this.identifiersMap.get(param)?.delete(identifier);
     });
   }
 

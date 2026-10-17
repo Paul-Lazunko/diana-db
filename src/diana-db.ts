@@ -27,9 +27,13 @@ import {
   constants,
   unlinkSync
 } from 'fs';
-import { resolve } from 'path';
 import { execSync, spawn } from 'child_process';
 import { Datanautics } from 'datanautics';
+
+// Must stay the first import: it loads the config file into process.env.
+import { parseConfigFile, resolveConfPath } from './cli-env';
+
+import { deriveUserKey } from '@user-store';
 import { config } from '@config';
 import { DEFAULT_DIANA_DB_USER_FILE_NAME, StoreStrategy, VERSION } from '@const';
 import { restoreStrategies } from '@restore-strategy';
@@ -39,34 +43,9 @@ import { ErrorFactory } from '@error';
 import { S3Driver } from '@s3-driver';
 import { touch } from '@helper';
 
+
 const userStore: Datanautics = new Datanautics({});
 
-const envMapping = {
-  binary_path: 'BIN_PATH',
-  port: 'DIANA_DB_PORT',
-  dump_create_interval: 'DIANA_DB_DUMP_CREATE_INTERVAL',
-  logger: 'DIANA_DB_LOGGER',
-  logs_directory: 'DIANA_DB_LOG_DIRECTORY',
-  dump_directory: 'DIANA_DB_DUMP_DIRECTORY',
-  logs_ttl_value: 'DIANA_DB_LOG_TTL',
-  current_dump_name: 'DIANA_DB_DUMP_CURRENT_NAME',
-  backup_name: 'DIANA_DB_BACKUP_NAME',
-  transactions_min_auto_rollback_value: 'DIANA_DB_TRANSACTION_AUTOROLLBACK_MIN',
-  transactions_max_auto_rollback_value: 'DIANA_DB_TRANSACTION_AUTOROLLBACK_MAX',
-  store_strategy: 'DIANA_DB_STORE_STRATEGY',
-  store_s3_endpoint: 'DIANA_DB_STORE_S3_ENDPOINT',
-  store_s3_bucket: 'DIANA_DB_STORE_S3_BUCKET',
-  store_s3_region: 'DIANA_DB_STORE_S3_REGION',
-  store_s3_access_key_id: 'DIANA_DB_STORE_S3_ACCESS_KEY_ID',
-  store_s3_secret_access_key: 'DIANA_DB_STORE_S3_SECRET_ACCESS_KEY',
-  ssl_cert_file: 'DIANA_DB_SSL_CERT_FILE',
-  ssl_key_file: 'DIANA_DB_SSL_KEY_FILE',
-  ssl_ca_file: 'DIANA_DB_SSL_CA_FILE',
-  ssl_request_cert: 'DIANA_DB_SSL_REQUEST_CERT',
-  ssl_reject_unauthorized: 'DIANA_DB_SSL_REJECT_UNAUTHORISED',
-};
-
-const DEFAULT_CONF = '/etc/diana-db/diana-db.conf';
 const SERVER_PROC_NAME = 'diana-db-server';
 
 function echoInfo() {
@@ -82,36 +61,16 @@ function parseConfig(confPath: string) {
     warn(`Config file not found: ${confPath}`);
     process.exit(1);
   }
-  const env = {};
-  for (const line of readFileSync(confPath, 'utf8').split(/\r?\n/)) {
-    const t = line.trim();
-    if (!t || t.startsWith('#')) {
-      continue;
-    }
-    const idx = t.indexOf('=');
-    if (idx === -1) {
-      continue;
-    }
-    const key = t.slice(0, idx).trim();
-    const value = t
-      .slice(idx + 1)
-      .trim()
-      .replace(/^['"]|['";]?$/g, '');
-    if (Object.prototype.hasOwnProperty.apply(envMapping, [key])) {
-      if (/^\d+$/.test(value)) {
-        env[envMapping[key]] = parseInt(value, 10);
-      } else {
-        env[envMapping[key]] = value;
-      }
-    }
-  }
-  return env;
+  return parseConfigFile(confPath);
 }
 
-function stopServer() {
-  let pid: string;
+function sleep(ms: number) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function getServerPids(): string {
   try {
-    pid = execSync(`pidof ${SERVER_PROC_NAME}`, {
+    return execSync(`pidof ${SERVER_PROC_NAME}`, {
       stdio: [
         'ignore',
         'pipe',
@@ -121,12 +80,32 @@ function stopServer() {
       .toString()
       .trim();
   } catch {
+    return '';
+  }
+}
+
+const STOP_TIMEOUT_MS = 30000;
+
+/** SIGTERM lets the server save its databases; SIGKILL is only a last resort after STOP_TIMEOUT_MS. */
+function stopServer() {
+  const pid: string = getServerPids();
+  if (!pid) {
     console.log('No running instance detected.');
     return;
   }
-  if (pid) {
-    console.log(`Stopping DianaDB Server (PID ${pid})…`);
-    execSync(`kill -9 ${pid}`);
+  console.log(`Stopping DianaDB Server (PID ${pid})…`);
+  execSync(`kill -TERM ${pid}`);
+  const deadline: number = Date.now() + STOP_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (!getServerPids()) {
+      return;
+    }
+    sleep(200);
+  }
+  const remaining: string = getServerPids();
+  if (remaining) {
+    warn(`Server didn't stop within ${STOP_TIMEOUT_MS / 1000}s, killing it. Unsaved changes may be lost.`);
+    execSync(`kill -9 ${remaining}`);
   }
 }
 
@@ -149,9 +128,13 @@ function startServer(env) {
   console.log(`Server started (PID ${child.pid}).`);
 }
 
+// Only the derived key is stored, never the plaintext password.
 function addUser(username: string, password: string) {
   userStore.set(`user.${username}.user`, username);
-  userStore.set(`user.${username}.password`, password);
+  userStore.set(`user.${username}.key`, deriveUserKey(password));
+  if (userStore.get(`user.${username}.password`) !== undefined) {
+    userStore.set(`user.${username}.password`, undefined);
+  }
 }
 
 function grantAccess(username: string, db: string, access: string) {
@@ -174,16 +157,7 @@ const [
   command,
   ...rest
 ] = argv;
-let confPath = DEFAULT_CONF;
-
-const cIdx = rest.indexOf('-c');
-const cIdxLong = rest.indexOf('--config');
-if (cIdx !== -1 && rest[cIdx + 1]) {
-  confPath = resolve(rest[cIdx + 1]);
-}
-if (cIdxLong !== -1 && rest[cIdxLong + 1]) {
-  confPath = resolve(rest[cIdxLong + 1]);
-}
+const confPath: string = resolveConfPath(rest);
 
 async function main() {
   try {
@@ -254,11 +228,11 @@ async function main() {
         const dbIdx = rest.indexOf('-db');
         const username = uIdx !== -1 ? rest[uIdx + 1] : undefined;
         const dbAccess = dbIdx !== -1 ? rest[dbIdx + 1] : undefined;
-        if (!username || !dbIdx) {
+        if (!username || !dbAccess) {
           warn('grant-access requires -u <username> -db <database:accessLevel>');
           process.exit(1);
         }
-        if (!/[\w_\-]+:[1,2,3]{1}$/.test(dbAccess)) {
+        if (!/^[\w-]+:[123]$/.test(dbAccess)) {
           warn('grant-access -db parameter should be <database_name:1|2|3>');
           process.exit(1);
         }
@@ -343,7 +317,7 @@ async function main() {
         echoInfo();
         const nIdx = rest.indexOf('-n');
         const nameString = nIdx !== -1 ? rest[nIdx + 1] : undefined;
-        const name = nameString.replace(/.didb$/, '');
+        const name = nameString?.replace(/\.didb$/, '');
         if (!name) {
           warn('create-backup requires -n <backup_name>');
           process.exit(1);
@@ -365,7 +339,7 @@ async function main() {
         const envObj: Record<string, string> = parseConfig(confPath);
         const nIdx = rest.indexOf('-n');
         const nameString = nIdx !== -1 ? rest[nIdx + 1] : undefined;
-        const name = nameString.replace(/.didb$/, '');
+        const name = nameString?.replace(/\.didb$/, '');
         if (!name) {
           warn('create-backup requires -n <backup_name>');
           process.exit(1);
@@ -428,7 +402,7 @@ async function main() {
         echoInfo();
         const nIdx = rest.indexOf('-n');
         const nameString = nIdx !== -1 ? rest[nIdx + 1] : undefined;
-        const name = nameString.replace(/.didb$/, '');
+        const name = nameString?.replace(/\.didb$/, '');
         if (!name) {
           warn('remove-backup requires -n <backup_name>');
           process.exit(1);

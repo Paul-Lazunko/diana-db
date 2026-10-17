@@ -7,7 +7,7 @@ import { Field } from '@field';
 import { DatabaseOptions } from '@options';
 import { DataHolder } from '@data-holder';
 import { autoRollbackValidator, schemaItemValidator } from '@validator';
-import { addStoreHandler, addTTLHandler, removeTTLHandler } from '@event-emitter';
+import { addStoreHandler, addTTLHandler, removeStoreHandler, removeTTLHandler } from '@event-emitter';
 import { TransformQuery } from '@dto';
 import { config } from '@config';
 
@@ -19,6 +19,7 @@ export class Database {
   public Types: Map<Types, Field>;
   public restored: boolean;
   private names: Set<string>;
+  private transactions: Map<string, NodeJS.Timeout> = new Map<string, NodeJS.Timeout>();
 
   constructor(options: DatabaseOptions) {
     if (Database.databases.has(options.name)) {
@@ -63,12 +64,18 @@ export class Database {
     }
   }
 
-  protected normalizeSchema(schema: Schema<any>) {
-    for (const property in schema) {
-      if (schema[property].type === Types.NUMBER && !(schema[property] as NumberFieldDefinition).precision) {
-        (schema[property] as NumberFieldDefinition).precision = 0;
-      }
+  // Precision is no longer defaulted to 0: that rounded every float stored in a field without an explicit precision.
+  protected normalizeSchema(schema: Schema<any>) {}
+
+  /** Releases everything the database registered globally, so a removed database is not saved again. */
+  public destroy() {
+    for (const name of Array.from(this.collections.keys())) {
+      this.removeCollection(name);
     }
+    this.transactions.forEach((timer: NodeJS.Timeout) => clearTimeout(timer));
+    this.transactions.clear();
+    removeStoreHandler(this.name);
+    Database.databases.delete(this.name);
   }
 
   public createCollection<T>(
@@ -148,6 +155,9 @@ export class Database {
     if (this.collections.has(collection)) {
       removeTTLHandler(collection);
       const c: Collection<any> = this.collections.get(collection);
+      for (const view of Object.keys(c.views)) {
+        c.removeView(view);
+      }
       for (const key in c.schema) {
         this.Types.get(c.schema[key].type)?.removeCollectionKey(collection, key);
       }
@@ -321,21 +331,43 @@ export class Database {
       throw ErrorFactory.transactionError(validationResult.error.message);
     }
     const transactionId: string = randomUUID();
+    // config.autoRollbackAfterMS doesn't exist, so transactions without an explicit timeout expired immediately.
+    const ttl: number = autoRollbackAfterMS || config.transactionsMaxAutoRollBackValue;
     this.collections.forEach((collection: Collection<any>, name: string) => {
-      collection.startTransaction(transactionId, autoRollbackAfterMS || config.autoRollbackAfterMS);
+      collection.startTransaction(transactionId, ttl);
     });
+    this.transactions.set(
+      transactionId,
+      setTimeout(() => this.transactions.delete(transactionId), ttl),
+    );
     return transactionId;
   }
 
   public rollbackTransaction(transactionId: string) {
+    this.forgetTransaction(transactionId);
     this.collections.forEach((collection: Collection<any>) => {
       collection.rollBackTransaction(transactionId);
     });
   }
 
   public commitTransaction(transactionId: string) {
+    if (!this.transactions.has(transactionId)) {
+      throw ErrorFactory.transactionError(`transaction "${transactionId}" doesn't exist or has expired`);
+    }
+    // Validate every collection before applying anything, so a failed commit changes nothing.
+    this.collections.forEach((collection: Collection<any>) => {
+      collection.validateTransactionCommit(transactionId);
+    });
+    this.forgetTransaction(transactionId);
     this.collections.forEach((collection: Collection<any>) => {
       collection.commitTransaction(transactionId);
     });
+  }
+
+  private forgetTransaction(transactionId: string) {
+    if (this.transactions.has(transactionId)) {
+      clearTimeout(this.transactions.get(transactionId));
+      this.transactions.delete(transactionId);
+    }
   }
 }

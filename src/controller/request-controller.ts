@@ -39,10 +39,9 @@ export class RequestController {
     ClientActions.GRANT_ACCESS,
     ClientActions.GET_VERSION,
   ];
+  // Actions that run without a database and therefore without database access checks.
+  // Migrations are not listed: they change global state and require WRITE access to the request's database.
   protected nonRequiredDbActions: string[] = [
-    ClientActions.MIGRATE_DOWN,
-    ClientActions.MIGRATE_UP,
-    ClientActions.GET_MIGRATIONS,
     ClientActions.ADD_USER,
     ClientActions.REMOVE_USER,
     ClientActions.GET_DATABASE_NAMES,
@@ -85,16 +84,25 @@ export class RequestController {
         user,
         view,
       } = request;
-      const db: Database = this.getDatabase(database, !this.nonRequiredDbActions.includes(action));
+      const requiresDb: boolean = !this.nonRequiredDbActions.includes(action);
+      if (requiresDb && !database) {
+        throw ErrorFactory.requestError('database name is required');
+      }
+      // Access is checked before the database is looked up, so users can't create databases they have no rights to.
       const hasGeneralDbAccess: boolean = this.checkDbAccess(user, database, DatabaseAccess.READ);
-      if (!hasGeneralDbAccess && !this.nonRequiredDbActions.includes(action)) {
+      if (!hasGeneralDbAccess && requiresDb) {
         throw ErrorFactory.accessError(`User "${user}" doesn't have access to the database "${database}"`);
       }
       const hasAccessToAction: boolean = this.checkClientActionAccess(user, database, action);
-      if (!hasAccessToAction && !this.nonRequiredDbActions.includes(action)) {
+      if (!hasAccessToAction && requiresDb) {
         throw ErrorFactory.accessError(`Action "${action}" not allowed for user "${user}" in database "${database}"`);
       }
-      if (action !== ClientActions.ADD_COLLECTION && !this.nonRequiredCollectionActions.includes(action)) {
+      const db: Database = requiresDb ? this.getDatabase(database) : undefined;
+      if (
+        action !== ClientActions.ADD_COLLECTION &&
+        action !== ClientActions.CREATE_COLLECTION &&
+        !this.nonRequiredCollectionActions.includes(action)
+      ) {
         this.checkCollectionExistence(db, collection);
       }
       if (Array.isArray(transformQueries) && transformQueries.length) {
@@ -131,7 +139,9 @@ export class RequestController {
           break;
         case ClientActions.REMOVE_DATABASE:
           if (dbExists) {
+            this.databases.get(database).destroy();
             this.databases.delete(database);
+            store.set(`db.${database}`, undefined);
           }
           response.data = { database, action: 'removed' };
           break;
@@ -274,10 +284,8 @@ export class RequestController {
     return databases.filter((database: string) => this.checkDbAccess(user, database, DatabaseAccess.READ));
   }
 
-  private getDatabase(name: string, throwError?: boolean) {
-    if (!name && throwError) {
-      throw ErrorFactory.requestError('database name is required');
-    }
+  /** Returns the database, creating it on first use. Callers must check access first. */
+  private getDatabase(name: string) {
     if (name && !this.databases.has(name)) {
       const database = new Database({ name, dianaDB: this.dianaDB });
       this.databases.set(name, database);

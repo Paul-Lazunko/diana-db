@@ -25,7 +25,8 @@ export function arrayIntersection<T>(...arrays: T[][]): T[] {
     (shortest: T[], current: T[]): T[] => (current.length < shortest.length ? current : shortest),
     arrays[0],
   );
-  return Array.from(new Set(base)).filter((item: T) => arrays.every((arr: T[]) => arr.includes(item)));
+  const sets: Set<T>[] = arrays.filter((arr: T[]) => arr !== base).map((arr: T[]) => new Set<T>(arr));
+  return Array.from(new Set(base)).filter((item: T) => sets.every((set: Set<T>) => set.has(item)));
 }
 
 export function arrayConcatenation<T>(...arrays: (T[] | any)[]): T[] {
@@ -36,7 +37,11 @@ export function arrayExcluding<T>(base: T[], exclude: T[]): T[] {
   if (!Array.isArray(base) || !Array.isArray(exclude)) {
     return base;
   }
-  return base.filter((item) => !exclude.includes(item));
+  if (!exclude.length) {
+    return base;
+  }
+  const excluded: Set<T> = new Set<T>(exclude);
+  return base.filter((item) => !excluded.has(item));
 }
 
 export function arrayEqualityCompare<T>(a: T[], b: T[]): boolean {

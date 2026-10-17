@@ -38,7 +38,7 @@ export class MatchHelper {
       if (Array.isArray(item[key])) {
         return item[key].includes(ensurePointer(value, item));
       } else {
-        return item[key].toString().match(ensurePointer(value, item).toString());
+        return item[key]?.toString().includes(ensurePointer(value, item).toString());
       }
     });
   }
@@ -48,7 +48,7 @@ export class MatchHelper {
       if (Array.isArray(item[key])) {
         return !item[key].includes(ensurePointer(value, item));
       } else {
-        return !item[key].toString().match(ensurePointer(value, item).toString());
+        return !item[key]?.toString().includes(ensurePointer(value, item).toString());
       }
     });
   }

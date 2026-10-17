@@ -267,11 +267,11 @@ const schemaItem = joi
     precision: joi
       .when('type', {
         is: Types.NUMBER,
-        then: joi.number().positive().integer().allow(0).min(0).max(8).required(),
+        then: joi.number().positive().integer().allow(0).min(0).max(8), // optional: no precision = stored as-is
       })
       .when('items', {
         is: Types.NUMBER,
-        then: joi.number().positive().integer().allow(0).min(0).max(8).required(),
+        then: joi.number().positive().integer().allow(0).min(0).max(8), // optional: no precision = stored as-is
       }),
     reference: joi
       .when('type', {
